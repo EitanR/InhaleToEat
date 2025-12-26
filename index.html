@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<!--
+  InhaleToEat - Afrezza Dosing Tool
+  Version: 9.92 (December 2025)
+  Author: Eitan Rosa
+
+  Licensed under Polyform Noncommercial 1.0.0
+  https://polyformproject.org/licenses/noncommercial/1.0.0/
+
+  You are free to:
+    - Use this tool for personal, non-commercial purposes
+    - Modify and share it with the diabetes community
+    - Fork and distribute under the same license
+
+  You may NOT:
+    - Use this tool or its derivatives for commercial purposes
+    - Sell, license, or monetize it (including via ads, subscriptions, or paid apps)
+    - Remove or alter this license notice
+
+  Commercial licensing available upon request: eitan.rosa@gmail.com
+
+  This tool is not medical advice. Always verify doses with your healthcare provider and CGM.
+-->
+<!-- SOURCE: app.dev.html -->
+<!-- FORCE PAGES REBUILD -->
+
+  
+<html lang="en">
+<head>
+    <script>
+window.APP_META = {
+  name: "InhaleToEat",
+  version: "9.92"
+};
+</script>
+ 
+    <link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1a1a2e">
+
+ <script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('./sw.js');
+      console.log('SW registered:', reg.scope);
+    } catch (e) {
+      console.error('SW registration failed:', e);
+    }
+  });
+}
+</script>
+
+ 
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Inline Manifest -->
+    
+    <style>
+        body {font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;margin:0;padding:20px;box-sizing:border-box;}
+        h1 {font-size:2.5em;margin:20px 0 10px;text-align:center;}
+
+body {
+  overflow-x: hidden;
+}
+
+        .subtitle {text-align:center;margin:0 0 20px;color:#ffd93d;font-size:1.2em;}
+        .welcome {background:#222;padding:15px;border-radius:12px;margin:20px 0;font-size:1.1em;text-align:left;max-width:800px;margin-left:auto;margin-right:auto;}
+.container {
+  width: 100%;
+  max-width: 800px;
+
+  margin-left: auto;
+  margin-right: auto;
+
+  padding-left: 16px;
+  padding-right: 16px;
+
+  box-sizing: border-box;
+}
+        .settings {
+  background: #222;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+
+  /* 🔒 Android-safe centering */
+  margin-left: auto;
+  margin-right: auto;
+  align-self: center;
+}
+
+
+
+
+        .row {display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;margin:10px 0;}
+        .row.full {justify-content: stretch;}
+
+        .label {font-size:1.4em;white-space:nowrap;}
+        input[type=number] {font-size:1.4em;padding:10px;width:120px;border-radius:8px;border:none;text-align:center;}
+        .big-input {width:100%;max-width:400px;}
+        .mode-btn {font-size:1.2em;padding:10px 16px;background:#333;color:#eee;border:2px solid #555;border-radius:12px;cursor:pointer;flex:1;margin:5px;}
+        .mode-btn.active {background:#ff6b6b;color:white;border-color:#ff6b6b;}
+        .mode-btn:active {transform:scale(0.98);}
+        .mode-desc {font-size:0.9em;color:#aaa;margin-top:5px;text-align:center;}
+        .slider-label {font-size:1.6em;margin:20px 0 10px;text-align:center;}
+		.slider-container {
+			width: 100%;
+			max-width: 100%;
+			box-sizing: border-box;
+
+			display: flex;
+			justify-content: center;
+			align-items: center;
+
+			margin: 20px auto;
+		}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+
+  width: 100%;
+  min-width: 0;        /* 🔑 REQUIRED for mobile flex */
+
+  height: 50px;
+  background: #333;
+  border-radius: 25px;
+  outline: none;
+
+  box-sizing: border-box;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider {
+  flex: 1;
+}
+
+.slider-value {
+  min-width: 2.5em;
+  text-align: right;
+  color: #ffd966;
+  font-variant-numeric: tabular-nums;
+}
+
+
+
+		.slider::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			width: 76px;
+			height: 76px;
+			background: #ff6b6b;
+			border-radius: 50%;
+			cursor: pointer;
+		}
+
+
+.slider-row .slider {
+  flex: 1;
+  min-width: 0; /* critical */
+}
+
+        .slider-value {font-size:2em;margin-left:10px;color:#ffd93d;}
+        #proteinCalc {font-size:1.6em;margin:20px;padding:15px;background:#222;border-radius:12px;}
+        #result {font-size:5em;margin:40px 0;color:#a8e6cf;text-align:center;}
+        #delayed {font-size:2.8em;color:#ffd93d;text-align:center;margin:20px 0;}
+        .disclaimer {font-size:0.9em;color:#ff9d9d;margin:20px;padding:10px;background:#333;border-radius:8px;}
+        .new-feature {color:#a8e6cf;font-size:0.9em;margin-top:8px;text-align:center;}
+        .tutorial-btn {font-size:1.2em;padding:8px 12px;background:#333;color:#ffd93d;border:2px solid #555;border-radius:12px;cursor:pointer;margin-left:15px;}
+        .tutorial-btn:active {transform:scale(0.98);}
+        .kofi {text-align:center;margin:40px 0 20px;}
+        .kofi p {font-size:1.1em;margin-bottom:15px;}
+        .tooltip {position:relative;cursor:help;color:#ffd93d;text-decoration:underline dotted;}
+        .tooltip::after {content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 12px;border-radius:8px;font-size:0.9em;white-space:nowrap;opacity:0;visibility:hidden;transition:opacity 0.2s,visibility 0.2s;z-index:10;pointer-events:none;margin-bottom:8px;}
+        .tooltip:hover::after,.tooltip:active::after {opacity:1;visibility:visible;}
+        .modal {display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
+        .modal-content {background:#222;padding:20px;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;position:relative;}
+        .close {position:absolute;top:10px;right:15px;font-size:2em;color:#aaa;cursor:pointer;}
+        .close:hover {color:#fff;}
+        .tutorial-text {line-height:1.6;font-size:1.1em;}
+        .tutorial-text strong {color:#ffd93d;}
+        @media (max-width:600px) {
+            .mode-btn {font-size:1.1em;padding:12px;}
+            .slider {height:60px;}
+            .slider::-webkit-slider-thumb {width:80px;height:80px;}
+            .tooltip::after {font-size:1em;white-space:normal;max-width:90vw;}
+            .tutorial-btn {font-size:1.1em;margin-left:10px;}
+        }
+ .sensitivity-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  max-width: 760px;     /* WIDER */
+  margin: 0 auto 10px;
+}
+
+.sensitivity-slider {
+  flex: 1;              /* slider takes all available space */
+  min-width: 320px;     /* prevents skinny slider */
+  max-width: 600px;     /* keeps it sane on desktop */
+}
+
+.sens-icon {
+  font-size: 2.2em;     /* keep your perfect size */
+  line-height: 1;
+  user-select: none;
+}
+
+.sens-icon.left {
+  color: #a8e6cf;
+}
+
+.sens-icon.right {
+  color: #ff9d9d;
+}
+
+.pgf-container {
+  max-width: 760px;
+  margin: 20px auto;
+}
+
+.pgf-container .slider {
+  width: 100%;
+  max-width: none;
+}
+.digestion-row {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin: 10px auto 20px;
+
+  max-width: 760px;
+}
+
+.digestion-row .mode-btn {
+  flex: 1;
+}
+
+/* Timing sliders need big travel distance */
+.timing-container {
+  max-width: 760px;
+  margin: 20px auto;
+}
+
+.preset-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin: 14px auto 24px;
+}
+
+.preset-btn {
+  font-size: 1.3em;
+  padding: 10px 18px;
+  border-radius: 12px;
+}
+
+
+.timing-container .slider {
+  width: 100%;
+  max-width: none;
+  height: 56px;           /* slightly taller = more deliberate */
+}
+
+.timing-container .slider::-webkit-slider-thumb {
+  width: 72px;
+  height: 72px;
+}
+
+        .install-banner {
+  display:none;
+  position:fixed;
+  bottom:15px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#ff6b6b;
+  color:white;
+  padding:12px 18px;
+  border-radius:14px;
+  font-size:1.1em;
+  z-index:1000;
+  box-shadow:0 6px 20px rgba(0,0,0,0.3);
+}
+.install-banner.show {
+  display:block;
+}
+.install-banner button {
+  background:#222;
+  color:white;
+  border:none;
+  padding:8px 14px;
+  border-radius:10px;
+  font-size:1em;
+  cursor:pointer;
+}
+        .kofi {
+  text-align: center;
+  margin: 40px auto 20px;
+  padding: 18px 20px;
+  background: #2a2a3d;
+  border-radius: 14px;
+  max-width: 520px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+.kofi p {
+  font-size: 1.1em;
+  color: #f1f1f1;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.kofi strong {
+  color: #ffd93d;
+}
+
+.kofi img {
+  height: 46px;
+  border: none;
+}
+@supports (-webkit-touch-callout: none) {
+  .container {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  
+@media (max-width: 600px) {
+
+  /* 🔥 KILL NESTED FLEX ON MOBILE */
+  .slider-container {
+    display: block;
+  }
+
+  /* Re-enable flex ONLY where needed */
+  .slider-container.timing-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Sensitivity row = column, dead center */
+  .sensitivity-row {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .sensitivity-slider {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Center slider values */
+  .slider-value {
+    margin: 8px 0 0 0;
+    text-align: center;
+  }
+
+  /* Digestion buttons centered */
+  .mode-btn {
+    width: 100%;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  /* Fix Today's Adjustment slider */
+.sensitivity-row {
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.sensitivity-slider {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.sens-icon {
+  display: none; /* hide icons on mobile */
+}
+
+/* Fix digestion mode buttons */
+.digestion-row {
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.digestion-row .mode-btn {
+  width: 100%;
+  max-width: 420px;
+}
+
+
+}
+
+
+    </style>
+</head>
+<body>
+    <!-- ================= MAIN APP UI ================= -->
+   <div class="container">
+        <h1>InhaleToEat 🥩💨</h1>
+        <p class="subtitle">Afrezza dosing • Dec 15 2025</p>
+
+        <div class="welcome">
+            Now a full Progressive Web App.<br>
+            Add to home screen: iPhone → Share → Add to Home Screen | Android → Menu → Install app.<br>
+            Works offline, auto-updates, full-screen experience.
+        </div>
+
+        <div class="settings">
+            <div class="row">
+                <span class="label">Afrezza Carb Ratio <span class="tooltip" data-tip="Grams carbs per 4u (30–45 typical)">ℹ️</span>:</span>
+                <input type="number" step="1" id="acr" value="35">
+                <button class="tutorial-btn" id="open-tutorial">How to find your numbers?</button>
+            </div>
+			<div class="row" style="flex-direction:column;">
+  <!-- existing settings above -->
+
+			<p class="slider-label">
+				Today’s Adjustment
+			<span class="tooltip" data-tip="Temporary change for illness, exercise, stress. Resets automatically.">
+      ℹ️
+			</span>
+		</p>
+<div class="sensitivity-row">
+  <span class="sens-icon left" title="More sensitive">💪</span>
+
+  <input
+    type="range"
+    min="-40"
+    max="60"
+    step="5"
+    value="0"
+    class="slider sensitivity-slider"
+    id="sensitivityAdjust"
+  >
+
+  <span class="sens-icon right" title="More resistant">🤒</span>
+</div>
+
+<div class="slider-value" id="sensVal">No adjustment</div>
+
+<p class="slider-label">
+  Protein → Glucose Factor
+  <span class="tooltip" data-tip="0.60 default. Low-carb often 0.6–0.8">ℹ️</span>
+</p>
+
+<div class="slider-row">
+  <input
+    type="range"
+    min="0"
+    max="100"
+    value="60"
+    class="slider"
+    id="proteinFactor"
+  >
+  <span class="slider-value" id="pfVal">0.60</span>
+</div>
+
+
+            <p style="margin:15px 0 5px;font-size:1.3em;">Digestion Mode:</p>
+<div class="digestion-row">
+                <button class="mode-btn active" data-mode="average" id="mode-average">
+                    Average Digester<br><span class="mode-desc">Standard timing</span>
+                </button>
+                <button class="mode-btn" data-mode="fast" id="mode-fast">
+                    Fast Digester ⚡<br><span class="mode-desc">Quicker / less delay</span>
+                </button>
+            </div>
+        </div>
+
+        <label class="big-input label">Real carbs (g) <span class="tooltip" data-tip="Fast-acting carbs">ℹ️</span>:</label>
+        <input type="number" class="big-input" id="carbs" value="0">
+
+        <label class="big-input label">Protein portion<span class="tooltip" data-tip="~300g ≈ 10–11 oz">ℹ️</span>:</label>
+        <input type="number" step="10" class="big-input" id="weight" value="300">
+        <button
+			id="openPresetSettings"
+			class="tutorial-btn"
+			aria-label="Edit protein portion presets"
+>
+			⚙️
+		</button>
+		
+		
+		<div class="unit-toggle">
+			<button id="unit-g">g</button>
+			<button id="unit-oz">oz</button>
+		</div>
+
+
+
+
+		<div class="preset-row">
+			<button class="preset-btn" onclick="setFoodWeightPreset('S')">Small</button>
+			<button class="preset-btn" onclick="setFoodWeightPreset('M')">Medium</button>
+			<button class="preset-btn" onclick="setFoodWeightPreset('L')">Large</button>
+
+		</div>
+
+        <p class="slider-label">Protein speed (0=fast → 10=slow) <span class="tooltip" data-tip="Red meat = high">ℹ️</span></p>
+        <div class="slider-container timing-container">
+
+            <input type="range" min="0" max="10" value="6" class="slider" id="proteinSpeed">
+            <span class="slider-value" id="pVal">6</span>
+        </div>
+
+        <p class="slider-label">Fat load (0=lean → 10=buttered) <span class="tooltip" data-tip="Delays emptying">ℹ️</span></p>
+        <div class="slider-container">
+            <input type="range" min="0" max="10" value="6" class="slider" id="fatLoad">
+            <span class="slider-value" id="fVal">6</span>
+        </div>
+
+        <div class="disclaimer">
+            <strong>Safety note:</strong> For severe gastroparesis, predictive splits may be unreliable. Dose reactively.
+        </div>
+
+        <div id="proteinCalc">≈ 63 g protein (+ 38 g equiv.) + 0 g real carbs</div>
+        <div id="result">NOW: 8 u</div>
+        <div id="delayed">(no follow-up)</div>
+
+       <div class="kofi">
+          <p>
+                If <strong>InhaleToEat</strong> helps you manage meals more confidently,
+  consider supporting continued development.
+          </p>
+          <a href="https://ko-fi.com/eitanrosa" target="_blank" rel="noopener">
+            <img src="https://storage.ko-fi.com/cdn/kofi_s_button.png"
+             alt="Support development on Ko-fi">
+          </a>
+        </div>
+
+<div class="row full">
+  <div class="slider-container">
+    …
+  </div>
+</div>
+
+
+<p class="new-feature">
+  InhaleToEat v<span id="app-version"></span>
+  · build <span id="build-id"></span>
+</p>
+
+</div> <!-- end container -->
+
+
+    <!-- Tutorial Modal -->
+    <div id="tutorial-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="close-tutorial">×</span>
+            <div class="tutorial-text">
+                <strong>Finding Your Afrezza Carb Ratio (ACR) & Protein Factor</strong><br><br>
+                Forget injected ratios — Afrezza's hepatic bias and fast clearance mean your numbers will look 'weaker' (higher ACR), and that's normal for smooth control.<br><br>
+
+                <strong>Step 1: Tune ACR with carb-focused meals</strong><br>
+                • Test a known carb load (e.g., 30g rice or bread, low protein/fat).<br>
+                • Dose upfront with the app's 'NOW' recommendation.<br>
+                • Monitor BG rise/drop.<br>
+                • Adjust ACR: <strong>higher</strong> if you go low, <strong>lower</strong> if high.<br>
+                • Typical range: 30–45g carbs per 4u. Many optimized users land 35–40.<br><br>
+
+                <strong>Step 2: Tune Protein Factor with zero-carb meals</strong><br>
+                • Eat high-protein, zero-carb (e.g., 300g steak or chicken — vary fat/speed sliders).<br>
+                • Use the app for dose & split. Monitor 4–5 hours.<br>
+                • Late high → increase PGF (0.65–0.75 typical for low-carb).<br>
+                • Low → decrease PGF.<br><br>
+
+                <strong>Pro tips</strong><br>
+                • <strong>Start conservative:</strong> Use a higher ACR (40–50) especially if new to Afrezza, sensitive (honeymoon/LADA), or insulin-naïve — this mimics the old Ultra Conservative mode safely.<br>
+                • Log 5–10 meals before finalizing numbers.<br>
+                • Tweak ACR by 5, PGF by 0.05.<br>
+                • Ratios can vary by time of day, activity, or illness — trust what keeps you in range.
+            </div>
+        </div>
+    </div>
+
+	<div id="preset-modal" class="modal">
+		<div class="modal-content">
+			<span class="close" id="close-preset">×</span>
+
+			<h2>Protein portion presets</h2>
+			<p style="color:#aaa;margin-bottom:10px;">
+      Adjust portion sizes used by Small / Medium / Large buttons.
+			</p>
+
+			<div class="row">
+				<label>S</label>
+				<input type="number" id="presetS" step="10" min="20"> g
+			</div>
+
+			<div class="row">
+				<label>M</label>
+				<input type="number" id="presetM" step="10" min="20"> g
+			</div>
+
+			<div class="row">
+				<label>L</label>
+				<input type="number" id="presetL" step="10" min="20"> g
+			</div>
+		</div>
+	</div> <!-- closes #preset-modal -->
+
+  
+    <!-- Main App Script -->
+    <script>
+       const inputs = {
+  carbs: document.getElementById('carbs'),
+  weight: document.getElementById('weight'),
+  acr: document.getElementById('acr'),
+  proteinFactor: document.getElementById('proteinFactor'),
+  proteinSpeed: document.getElementById('proteinSpeed'),
+  fatLoad: document.getElementById('fatLoad'),
+  sensitivityAdjust: document.getElementById('sensitivityAdjust'),
+  sensVal: document.getElementById('sensVal'),
+  pVal: document.getElementById('pVal'),
+  fVal: document.getElementById('fVal'),
+  pfVal: document.getElementById('pfVal'),
+  result: document.getElementById('result'),
+  delayed: document.getElementById('delayed'),
+  proteinCalc: document.getElementById('proteinCalc')
+};
+
+const proteinInput = inputs.weight;
+
+function updateProteinDisplay() {
+  const grams = parseFloat(inputs.weight.value) || 0;
+
+  if (proteinUnit === 'oz') {
+    proteinInput.value = (grams / G_PER_OZ).toFixed(1);
+  } else {
+    proteinInput.value = Math.round(grams);
+  }
+
+  document.getElementById('unit-g')?.classList.toggle('active', proteinUnit === 'g');
+  document.getElementById('unit-oz')?.classList.toggle('active', proteinUnit === 'oz');
+}
+
+			inputs.sensitivityAdjust.addEventListener('input', () => {
+  const adj = parseInt(inputs.sensitivityAdjust.value || 0);
+
+  inputs.sensVal.textContent =
+    adj === 0 ? 'No adjustment'
+    : adj > 0 ? `+${adj}% (resistant)`
+    : `${adj}% (sensitive)`;
+
+  calc();
+});
+proteinInput.addEventListener('input', e => {
+  const val = parseFloat(e.target.value);
+  if (!val) return;
+
+  const grams = proteinUnit === 'oz'
+    ? val * G_PER_OZ
+    : val;
+
+  inputs.weight.value = grams;
+  calc();
+});
+
+
+let proteinUnit = localStorage.getItem('proteinUnit') || 'g';
+const G_PER_OZ = 28.3495;
+
+
+const DEFAULT_FOOD_PRESETS = { S: 100, M: 200, L: 300 };
+
+let foodPresets = DEFAULT_FOOD_PRESETS;
+
+try {
+  const saved = JSON.parse(localStorage.getItem('inhaleFoodPresets'));
+  if (saved && saved.S && saved.M && saved.L) {
+    foodPresets = saved;
+  }
+} catch (e) {
+  console.warn("Preset load failed, using defaults");
+}
+
+document.getElementById('unit-g').onclick = () => {
+  proteinUnit = 'g';
+  localStorage.setItem('proteinUnit', 'g');
+  updateProteinDisplay();
+};
+
+document.getElementById('unit-oz').onclick = () => {
+  proteinUnit = 'oz';
+  localStorage.setItem('proteinUnit', 'oz');
+  updateProteinDisplay();
+};
+
+document.getElementById('presetS').value = foodPresets.S;
+document.getElementById('presetM').value = foodPresets.M;
+document.getElementById('presetL').value = foodPresets.L;
+
+['S','M','L'].forEach(size => {
+  document.getElementById(`preset${size}`).addEventListener('input', e => {
+    const val = parseInt(e.target.value);
+    if (!val || val < 20) return;
+
+    foodPresets[size] = val;
+    localStorage.setItem('inhaleFoodPresets', JSON.stringify(foodPresets));
+  });
+});
+
+
+const presetModal = document.getElementById('preset-modal');
+
+document.getElementById('openPresetSettings').onclick = () => {
+  document.getElementById('presetS').value = foodPresets.S;
+  document.getElementById('presetM').value = foodPresets.M;
+  document.getElementById('presetL').value = foodPresets.L;
+  presetModal.style.display = 'flex';
+};
+
+document.getElementById('close-preset').onclick = () =>
+  presetModal.style.display = 'none';
+
+presetModal.onclick = e => {
+  if (e.target === presetModal) presetModal.style.display = 'none';
+};
+
+
+function setFoodWeightPreset(size) {
+  const g = foodPresets[size];
+  if (!g) return;
+
+  inputs.weight.value = g;
+  calc();
+  updateProteinDisplay();
+
+}
+
+
+        let currentMode = 'average';
+
+        const modeButtons = {
+            average: document.getElementById('mode-average'),
+            fast: document.getElementById('mode-fast')
+        };
+
+        const modal = document.getElementById('tutorial-modal');
+        document.getElementById('open-tutorial').onclick = () => modal.style.display = 'flex';
+        document.getElementById('close-tutorial').onclick = () => modal.style.display = 'none';
+        modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+
+        function setMode(mode) {
+            currentMode = mode;
+            Object.keys(modeButtons).forEach(k => modeButtons[k].classList.toggle('active', k === mode));
+            localStorage.setItem('inhaleMode', mode);
+            calc();
+        }
+
+        Object.keys(modeButtons).forEach(k => modeButtons[k].onclick = () => setMode(k));
+
+		
+        function getModeSettings() {
+            if (currentMode === 'fast') {
+                return { fatMult: 6, speedMult: 5, basePre: 0.88, prePenalty: 0.02, boldness: 1.1 };
+            }
+            return { fatMult: 13, speedMult: 9, basePre: 0.95, prePenalty: 0.038, boldness: 1.1 };
+        }
+        
+        function setFoodWeight(g) {
+			inputs.weight.value = g;
+			calc();
+		}
+
+/*
+  === CORE DOSING ENGINE ===
+  This section implements Afrezza-specific dosing logic
+  developed through extensive personal experimentation
+  and real-world iteration.
+
+  It reflects physiological assumptions, timing heuristics,
+  and safety constraints specific to inhaled insulin.
+
+  Commercial use, extraction, reuse, or derivative works
+  of this logic are prohibited outside the terms of the
+  Polyform Noncommercial license.
+*/
+
+
+	function calc() {
+			if (isNaN(inputs.weight.value) || inputs.weight.value <= 0) {
+				console.warn("Invalid weight input");
+			}
+
+            let c = parseFloat(inputs.carbs.value) || 0;
+            let w_g = parseFloat(inputs.weight.value) || 0;
+            let p_g = w_g * 0.21;
+            let protein_factor = inputs.proteinFactor.value / 100;
+
+            let protein_as_carbs = p_g * protein_factor;
+
+            inputs.proteinCalc.textContent = `≈ ${Math.round(p_g)} g protein (+ ${Math.round(protein_as_carbs)} g equiv.) + ${c} g real carbs`;
+
+            let acr = parseFloat(inputs.acr.value) || 35;
+            if (acr <= 0) acr = 35;
+
+            let ratio = p_g > 0 ? c / p_g : 1.0;
+
+            let pgf_multiplier = 1.0;
+            let bio_factor = 2.0;
+            let min_pre = 0.65;
+            if (ratio < 0.3) {
+                pgf_multiplier = 0.8;
+                bio_factor = 1.5;
+                min_pre = 0.55;
+            } else if (ratio >= 0.8) {
+                pgf_multiplier = 1.1;
+                bio_factor = 2.0;
+                min_pre = 0.75;
+            }
+
+            protein_as_carbs *= pgf_multiplier;
+
+            let carb_raw = (c / acr) * 4 * bio_factor;
+            let carb_now = carb_raw > 0 ? Math.ceil(carb_raw / 4) * 4 : 0;
+
+            let protein_raw = (protein_as_carbs / acr) * 4 * bio_factor;
+            let protein_total = protein_raw > 0 ? Math.ceil(protein_raw / 4) * 4 : 0;
+
+            const settings = getModeSettings();
+
+            let pre_ratio = settings.basePre - (inputs.fatLoad.value + inputs.proteinSpeed.value) * settings.prePenalty;
+            pre_ratio = Math.max(min_pre, Math.min(0.96, pre_ratio));
+
+          let protein_pre_raw = protein_raw * pre_ratio;
+let protein_pre = Math.ceil(protein_pre_raw / 4) * 4;
+let protein_later = protein_total - protein_pre;
+
+// Protect delayed insulin for meaningful protein loads
+if (protein_total >= 8 && protein_pre >= protein_total) {
+  protein_pre = protein_total - 4;
+  protein_later = protein_total - protein_pre;
+}
+
+let pre = carb_now + protein_pre;
+let later = protein_later;
+
+
+            // Apply temporary sensitivity AFTER split & rounding to preserve Afrezza cartridge granularity
+
+
+            let baseDelayMin = inputs.proteinSpeed.value * settings.speedMult + inputs.fatLoad.value * settings.fatMult;
+            let h = Math.floor(baseDelayMin / 60);
+            let m = Math.round(baseDelayMin % 60);
+			// === Temporary sensitivity / resistance adjustment ===
+			let adj = parseInt(inputs.sensitivityAdjust.value || 0);
+			let adjMult = 1 + adj / 100;
+
+			pre = Math.max(0, Math.round(pre * adjMult / 4) * 4);
+			later = Math.max(0, Math.round(later * adjMult / 4) * 4);
+            inputs.result.textContent = `NOW: ${pre} u`;
+            inputs.delayed.textContent = later > 0 ? `Then ${later} u in ${h ? h+' h ' : ''}${m} min` : '(no follow-up)';
+
+            inputs.pVal.textContent = inputs.proteinSpeed.value;
+            inputs.fVal.textContent = inputs.fatLoad.value;
+            inputs.pfVal.textContent = protein_factor.toFixed(2);
+
+        }
+
+
+
+        // Persistence
+        if (localStorage.getItem('inhaleMode')) {
+            const saved = localStorage.getItem('inhaleMode');
+            if (saved === 'ultra') setMode('average');
+            else setMode(saved);
+        }
+        if (localStorage.getItem('inhaleACR')) inputs.acr.value = localStorage.getItem('inhaleACR');
+        if (localStorage.getItem('inhalePF')) inputs.proteinFactor.value = localStorage.getItem('inhalePF');
+
+        inputs.acr.addEventListener('input', () => localStorage.setItem('inhaleACR', inputs.acr.value));
+        inputs.proteinFactor.addEventListener('input', () => {
+            localStorage.setItem('inhalePF', inputs.proteinFactor.value);
+            calc();
+        });
+
+        document.querySelectorAll('input').forEach(i => i.addEventListener('input', calc));
+        calc();
+    </script>
+    <!-- PWA Install Logic -->
+<script>
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-banner')?.classList.add('show');
+});
+
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.finally(() => deferredPrompt = null);
+}
+
+// iOS detection
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+  || window.navigator.standalone;
+
+if (isIOS && !isStandalone) {
+  document.getElementById('ios-install')?.classList.add('show');
+}
+</script>
+
+<!-- Install banners -->
+<div id="install-banner" class="install-banner">
+  <button onclick="installApp()">Install InhaleToEat</button>
+</div>
+
+<div id="ios-install" class="install-banner">
+  Tap <strong>Share</strong> → <strong>Add to Home Screen</strong>
+</div>
+ 
+<script>
+if (window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone) {
+  document.getElementById('install-banner')?.remove();
+  document.getElementById('ios-install')?.remove();
+}
+</script>
+
+<!-- Version + Build Injection -->
+<script>
+  document.getElementById("app-version").textContent =
+    window.APP_META.version;
+
+  const build = document.getElementById("build-id");
+  if (build) {
+    build.textContent =
+      new Date().toISOString().slice(0,16).replace("T"," ");
+  }
+</script>
+  
+</div>
+
+
+</body>
+</html>
