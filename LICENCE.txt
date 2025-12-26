@@ -1,0 +1,14 @@
+LICENSE
+Polyform Noncommercial License 1.0.0
+
+Copyright (c) 2025 Eitan Rosa
+
+Permission is hereby granted to any person obtaining a copy of this
+software to use it for noncommercial purposes only.
+
+Commercial use, including but not limited to selling, sublicensing,
+hosting as a paid service, or embedding in commercial products, is
+prohibited without explicit written permission from the copyright holder.
+
+Full license text:
+https://polyformproject.org/licenses/noncommercial/1.0.0/
