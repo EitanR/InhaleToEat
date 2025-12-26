@@ -28,6 +28,14 @@ Users are responsible for verifying all dosing decisions and outcomes.
 
 ---
 
+## Getting Started
+
+To use InhaleToEat:
+1. Open `index.html` in your browser
+2. Install as a PWA (optional)
+
+---
+
 ## License
 
 This project is licensed under the **Polyform Noncommercial License 1.0.0**.
