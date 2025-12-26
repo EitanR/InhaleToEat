@@ -34,6 +34,10 @@ To use InhaleToEat:
 1. Open `index.html` in your browser
 2. Install as a PWA (optional)
 
+## Live Demo
+
+https://eitanr.github.io/InhaleToEat
+
 ---
 
 ## License
