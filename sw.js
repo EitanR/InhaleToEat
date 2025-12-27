@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inhale-to-eat-v1';
+const CACHE_NAME = 'inhale-to-eat-v2-clean';
 const ASSETS = [
   './',
   './index.html',
