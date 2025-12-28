@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inhale-to-eat-v2-clean'; 
+const CACHE_NAME = 'inhale-to-eat-v1.0.1';
 self.addEventListener('install', event => {
   self.skipWaiting();
 });
