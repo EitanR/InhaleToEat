@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.0 (December 2025)
-  Author: Eitan Rosa 
- 
+  Version: 1.0.1 (December 2025)
+  Author: Eitan Rosa
+
   Licensed under Polyform Noncommercial 1.0.0
   https://polyformproject.org/licenses/noncommercial/1.0.0/
 
@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.0"
+  version: "1.0.1"
 };
 </script>
  
@@ -489,7 +489,19 @@ body {
         <input type="number" class="big-input" id="carbs" value="0">
 
         <label class="big-input label">Protein portion<span class="tooltip" data-tip="~300g ≈ 10–11 oz">ℹ️</span>:</label>
-        <input type="number" step="10" class="big-input" id="weight" value="300">
+        <input
+			type="number"
+			step="10"
+			class="big-input"
+			id="weight"
+		value="300"
+		readonly
+		>
+		<div style="font-size:0.9em;color:#aaa;margin-bottom:6px;">
+  Use presets below or ⚙️ to adjust portion sizes.
+</div>
+
+
         <button
 			id="openPresetSettings"
 			class="tutorial-btn"
