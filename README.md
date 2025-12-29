@@ -20,8 +20,8 @@ It is not intended to replace clinical judgment or professional care.
 
 - v1.1 — Tutorials & onboarding improvements
 - v1.2 — UI polish and layout refinements
-- v1.3 — Profile support (single-user abstraction)
-- v1.4 — Multi-user / household support
+- v1.3 — Profile architecture
+- v1.4 — Multi-user / Profile UI & switching
 
 
 ---
