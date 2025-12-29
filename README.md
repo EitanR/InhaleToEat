@@ -16,6 +16,14 @@ validation, testing, and feedback.
 Features, dosing logic, and UI may change as the tool evolves.
 It is not intended to replace clinical judgment or professional care.
 
+## Roadmap (tentative)
+
+- v1.1 — Tutorials & onboarding improvements
+- v1.2 — UI polish and layout refinements
+- v1.3 — Profile support (single-user abstraction)
+- v1.4 — Multi-user / household support
+
+
 ---
 
 ## Disclaimer
