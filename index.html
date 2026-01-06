@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.0.1"
+  version: "1.0.2"
 };
 </script>
  
@@ -61,7 +61,7 @@ if ('serviceWorker' in navigator) {
     
     <!-- Inline Manifest -->
     
-    <style>
+ <style>
         body {font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;margin:0;padding:20px;box-sizing:border-box;}
         h1 {font-size:2.5em;margin:20px 0 10px;text-align:center;}
 
@@ -224,6 +224,26 @@ body {
 .sens-icon.right {
   color: #ff9d9d;
 }
+
+/* PGF full-width fix */
+.pgf-block {
+  width: 100%;
+  max-width: 760px;   /* matches other slider containers */
+  margin: 0 auto 24px;
+  box-sizing: border-box;
+}
+
+.pgf-block .slider {
+  width: 100%;
+}
+
+.pgf-block .slider-value {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 2em;
+  color: #ffd93d;
+}
+
 
 .pgf-container {
   max-width: 760px;
@@ -461,7 +481,7 @@ body {
   <span class="tooltip" data-tip="0.60 default. Low-carb often 0.6–0.8">ℹ️</span>
 </p>
 
-<div class="slider-row">
+<div class="pgf-block">
   <input
     type="range"
     min="0"
@@ -470,8 +490,9 @@ body {
     class="slider"
     id="proteinFactor"
   >
-  <span class="slider-value" id="pfVal">0.60</span>
+  <div class="slider-value" id="pfVal">0.60</div>
 </div>
+
 
 
             <p style="margin:15px 0 5px;font-size:1.3em;">Digestion Mode:</p>
