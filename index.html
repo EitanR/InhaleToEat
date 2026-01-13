@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.0.2 (December 2025)
+  Version: 1.0.2 (January 2026)
   Author: Eitan Rosa
 
   Licensed under Polyform Noncommercial 1.0.0
@@ -433,119 +433,77 @@ body {
 </head>
 <body>
     <!-- ================= MAIN APP UI ================= -->
-   <div class="container">
-        <h1>InhaleToEat 🥩💨</h1>
-        <p class="subtitle">Afrezza dosing • Dec 15 2025</p>
+  <div class="container">
+    <h1>InhaleToEat 🥩💨</h1>
+    <p class="subtitle">Afrezza dosing • Dec 15 2025</p>
 
-        <div class="welcome">
-            Now a full Progressive Web App.<br>
-            Add to home screen: iPhone → Share → Add to Home Screen | Android → Menu → Install app.<br>
-            Works offline, auto-updates, full-screen experience.
+    <div class="welcome">
+        Now a full Progressive Web App.<br>
+        Add to home screen: iPhone → Share → Add to Home Screen | Android → Menu → Install app.<br>
+        Works offline, auto-updates, full-screen experience.
+    </div>
+
+    <div class="settings">
+        <div class="row">
+            <span class="label">Afrezza Carb Ratio <span class="tooltip" data-tip="Grams carbs per 4u (30–45 typical)">ℹ️</span>:</span>
+            <input type="number" step="1" id="acr" value="35">
+            <button class="tutorial-btn" id="open-tutorial">How to find your numbers?</button>
         </div>
 
-        <div class="settings">
-            <div class="row">
-                <span class="label">Afrezza Carb Ratio <span class="tooltip" data-tip="Grams carbs per 4u (30–45 typical)">ℹ️</span>:</span>
-                <input type="number" step="1" id="acr" value="35">
-                <button class="tutorial-btn" id="open-tutorial">How to find your numbers?</button>
+        <div class="row" style="flex-direction:column; width: 100%;">
+            <p class="slider-label">
+                Today’s Adjustment
+                <span class="tooltip" data-tip="Temporary change for illness, exercise, stress. Resets automatically.">ℹ️</span>
+            </p>
+            <div class="sensitivity-row">
+                <span class="sens-icon left" title="More sensitive">💪</span>
+                <input type="range" min="-40" max="60" step="5" value="0" class="slider sensitivity-slider" id="sensitivityAdjust">
+                <span class="sens-icon right" title="More resistant">🤒</span>
             </div>
-			<div class="row" style="flex-direction:column;">
-  <!-- existing settings above -->
-
-			<p class="slider-label">
-				Today’s Adjustment
-			<span class="tooltip" data-tip="Temporary change for illness, exercise, stress. Resets automatically.">
-      ℹ️
-			</span>
-		</p>
-<div class="sensitivity-row">
-  <span class="sens-icon left" title="More sensitive">💪</span>
-
-  <input
-    type="range"
-    min="-40"
-    max="60"
-    step="5"
-    value="0"
-    class="slider sensitivity-slider"
-    id="sensitivityAdjust"
-  >
-
-  <span class="sens-icon right" title="More resistant">🤒</span>
-</div>
-
-<div class="slider-value" id="sensVal">No adjustment</div>
-
-<p class="slider-label">
-  Protein → Glucose Factor
-  <span class="tooltip" data-tip="0.60 default. Low-carb often 0.6–0.8">ℹ️</span>
-</p>
-
-<div class="pgf-block">
-  <input
-    type="range"
-    min="0"
-    max="100"
-    value="60"
-    class="slider"
-    id="proteinFactor"
-  >
-  <div class="slider-value" id="pfVal">0.60</div>
-</div>
-
-
-
-            <p style="margin:15px 0 5px;font-size:1.3em;">Digestion Mode:</p>
-<div class="digestion-row">
-                <button class="mode-btn active" data-mode="average" id="mode-average">
-                    Average Digester<br><span class="mode-desc">Standard timing</span>
-                </button>
-                <button class="mode-btn" data-mode="fast" id="mode-fast">
-                    Fast Digester ⚡<br><span class="mode-desc">Quicker / less delay</span>
-                </button>
-            </div>
+            <div class="slider-value" id="sensVal">No adjustment</div>
         </div>
 
+        <p class="slider-label">
+            Protein → Glucose Factor
+            <span class="tooltip" data-tip="0.60 default. Low-carb often 0.6–0.8">ℹ️</span>
+        </p>
+        <div class="pgf-block">
+            <input type="range" min="0" max="100" value="60" class="slider" id="proteinFactor">
+            <div class="slider-value" id="pfVal">0.60</div>
+        </div>
+
+        <p style="margin:15px 0 5px;font-size:1.3em;">Digestion Mode:</p>
+        <div class="digestion-row">
+            <button class="mode-btn active" data-mode="average" id="mode-average">
+                Average Digester<br><span class="mode-desc">Standard timing</span>
+            </button>
+            <button class="mode-btn" data-mode="fast" id="mode-fast">
+                Fast Digester ⚡<br><span class="mode-desc">Quicker / less delay</span>
+            </button>
+        </div>
+    </div> <div class="input-section">
         <label class="big-input label">Real carbs (g) <span class="tooltip" data-tip="Fast-acting carbs">ℹ️</span>:</label>
         <input type="number" class="big-input" id="carbs" value="0">
 
-        <label class="big-input label">Protein portion<span class="tooltip" data-tip="~300g ≈ 10–11 oz">ℹ️</span>:</label>
-        <input
-			type="number"
-			step="10"
-			class="big-input"
-			id="weight"
-		value="300"
-		readonly
-		>
-		<div style="font-size:0.9em;color:#aaa;margin-bottom:6px;">
-  Use presets below or ⚙️ to adjust portion sizes.
-</div>
+        <label class="big-input label">Protein portion <span class="tooltip" data-tip="~300g ≈ 10–11 oz">ℹ️</span>:</label>
+        <div class="row" style="gap:5px;">
+             <input type="number" step="10" class="big-input" id="weight" value="300" readonly>
+             <button id="openPresetSettings" class="tutorial-btn" style="margin:0;">⚙️</button>
+        </div>
+        
+        <div class="unit-toggle" style="margin-top:10px; display:flex; justify-content:center; gap:10px;">
+            <button id="unit-g" class="mode-btn">g</button>
+            <button id="unit-oz" class="mode-btn">oz</button>
+        </div>
 
+        <div class="preset-row">
+            <button class="preset-btn" onclick="setFoodWeightPreset('S')">Small</button>
+            <button class="preset-btn" onclick="setFoodWeightPreset('M')">Medium</button>
+            <button class="preset-btn" onclick="setFoodWeightPreset('L')">Large</button>
+        </div>
+    </div>
 
-        <button
-			id="openPresetSettings"
-			class="tutorial-btn"
-			aria-label="Edit protein portion presets"
->
-			⚙️
-		</button>
-		
-		
-		<div class="unit-toggle">
-			<button id="unit-g">g</button>
-			<button id="unit-oz">oz</button>
-		</div>
-
-
-
-
-		<div class="preset-row">
-			<button class="preset-btn" onclick="setFoodWeightPreset('S')">Small</button>
-			<button class="preset-btn" onclick="setFoodWeightPreset('M')">Medium</button>
-			<button class="preset-btn" onclick="setFoodWeightPreset('L')">Large</button>
-
-		</div>
+    </div>
 
         <p class="slider-label">Protein speed (0=fast → 10=slow) <span class="tooltip" data-tip="Red meat = high">ℹ️</span></p>
         <div class="slider-container timing-container">
