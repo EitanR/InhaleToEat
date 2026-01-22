@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.0.3 (January 2026)
+  Version: 1.0.4 (December 2025)
   Author: Eitan Rosa
 
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.0.3"
+  version: "1.0.4"
 };
 </script>
  
@@ -223,6 +223,17 @@ body {
 
 .sens-icon.right {
   color: #ff9d9d;
+}
+
+/* Remove arrows/spinners from all number inputs */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield; /* For Firefox */
 }
 
 /* PGF full-width fix */
@@ -487,7 +498,15 @@ body {
 
         <label class="big-input label">Protein portion <span class="tooltip" data-tip="~300g ≈ 10–11 oz">ℹ️</span>:</label>
         <div class="row" style="gap:5px;">
-             <input type="number" step="10" class="big-input" id="weight" value="300" readonly>
+             <input
+				type="number"
+				step="10"
+				class="big-input"
+				id="weight"
+				value="300"
+				readonly
+			>
+
              <button id="openPresetSettings" class="tutorial-btn" style="margin:0;">⚙️</button>
         </div>
         
@@ -611,281 +630,266 @@ body {
   
     <!-- Main App Script -->
     <script>
-       const inputs = {
-  carbs: document.getElementById('carbs'),
-  weight: document.getElementById('weight'),
-  acr: document.getElementById('acr'),
-  proteinFactor: document.getElementById('proteinFactor'),
-  proteinSpeed: document.getElementById('proteinSpeed'),
-  fatLoad: document.getElementById('fatLoad'),
-  sensitivityAdjust: document.getElementById('sensitivityAdjust'),
-  sensVal: document.getElementById('sensVal'),
-  pVal: document.getElementById('pVal'),
-  fVal: document.getElementById('fVal'),
-  pfVal: document.getElementById('pfVal'),
-  result: document.getElementById('result'),
-  delayed: document.getElementById('delayed'),
-  proteinCalc: document.getElementById('proteinCalc')
-};
-
-const proteinInput = inputs.weight;
-
-function updateProteinDisplay() {
-  const grams = parseFloat(inputs.weight.value) || 0;
-
-  if (proteinUnit === 'oz') {
-    proteinInput.value = (grams / G_PER_OZ).toFixed(1);
-  } else {
-    proteinInput.value = Math.round(grams);
-  }
-
-  document.getElementById('unit-g')?.classList.toggle('active', proteinUnit === 'g');
-  document.getElementById('unit-oz')?.classList.toggle('active', proteinUnit === 'oz');
-}
-
-			inputs.sensitivityAdjust.addEventListener('input', () => {
-  const adj = parseInt(inputs.sensitivityAdjust.value || 0);
-
-  inputs.sensVal.textContent =
-    adj === 0 ? 'No adjustment'
-    : adj > 0 ? `+${adj}% (resistant)`
-    : `${adj}% (sensitive)`;
-
-  calc();
-});
-proteinInput.addEventListener('input', e => {
-  const val = parseFloat(e.target.value);
-  if (!val) return;
-
-  const grams = proteinUnit === 'oz'
-    ? val * G_PER_OZ
-    : val;
-
-  inputs.weight.value = grams;
-  calc();
-});
-
-
-let proteinUnit = localStorage.getItem('proteinUnit') || 'g';
+		//let proteinUnit = localStorage.getItem('proteinUnit') || 'g';
+// --- 1. SETTINGS & PERSISTENCE ---
 const G_PER_OZ = 28.3495;
-
-
 const DEFAULT_FOOD_PRESETS = { S: 100, M: 200, L: 300 };
 
+let proteinUnit = localStorage.getItem('proteinUnit') || 'g';
+let currentMode = localStorage.getItem('inhaleMode') || 'average';
+let weightInGrams = parseFloat(localStorage.getItem('inhaleWeightGrams')) || 300;
+   //let foodPresets = JSON.parse(localStorage.getItem('inhaleFoodPresets')) || DEFAULT_FOOD_PRESETS;
+// Load saved presets or use defaults
 let foodPresets = DEFAULT_FOOD_PRESETS;
-
-try {
-  const saved = JSON.parse(localStorage.getItem('inhaleFoodPresets'));
-  if (saved && saved.S && saved.M && saved.L) {
-    foodPresets = saved;
-  }
-} catch (e) {
-  console.warn("Preset load failed, using defaults");
+const savedPresets = localStorage.getItem('inhaleFoodPresets');
+if (savedPresets) {
+    try {
+        foodPresets = JSON.parse(savedPresets);
+    } catch (e) {
+        console.error("Error parsing presets", e);
+    }
 }
-
-document.getElementById('unit-g').onclick = () => {
-  proteinUnit = 'g';
-  localStorage.setItem('proteinUnit', 'g');
-  updateProteinDisplay();
+const inputs = {
+    carbs: document.getElementById('carbs'),
+    weight: document.getElementById('weight'),
+    acr: document.getElementById('acr'),
+    proteinFactor: document.getElementById('proteinFactor'),
+    proteinSpeed: document.getElementById('proteinSpeed'),
+    fatLoad: document.getElementById('fatLoad'),
+    sensitivityAdjust: document.getElementById('sensitivityAdjust'),
+    result: document.getElementById('result'),
+    delayed: document.getElementById('delayed'),
+    proteinCalc: document.getElementById('proteinCalc'),
+    pVal: document.getElementById('pVal'),
+    fVal: document.getElementById('fVal'),
+    pfVal: document.getElementById('pfVal'),
+    sensVal: document.getElementById('sensVal')
 };
 
-document.getElementById('unit-oz').onclick = () => {
-  proteinUnit = 'oz';
-  localStorage.setItem('proteinUnit', 'oz');
-  updateProteinDisplay();
-};
-
-document.getElementById('presetS').value = foodPresets.S;
-document.getElementById('presetM').value = foodPresets.M;
-document.getElementById('presetL').value = foodPresets.L;
-
-['S','M','L'].forEach(size => {
-  document.getElementById(`preset${size}`).addEventListener('input', e => {
-    const val = parseInt(e.target.value);
-    if (!val || val < 20) return;
-
-    foodPresets[size] = val;
-    localStorage.setItem('inhaleFoodPresets', JSON.stringify(foodPresets));
-  });
-});
-
-
+// --- FIXED PRESET & MODAL LOGIC ---
 const presetModal = document.getElementById('preset-modal');
 
 document.getElementById('openPresetSettings').onclick = () => {
-  document.getElementById('presetS').value = foodPresets.S;
-  document.getElementById('presetM').value = foodPresets.M;
-  document.getElementById('presetL').value = foodPresets.L;
-  presetModal.style.display = 'flex';
+    // Fill the pop-up with current values before showing it
+    document.getElementById('presetS').value = presetDisplayValue(foodPresets.S);
+    document.getElementById('presetM').value = presetDisplayValue(foodPresets.M);
+    document.getElementById('presetL').value = presetDisplayValue(foodPresets.L);
+    presetModal.style.display = 'flex';
 };
 
-document.getElementById('close-preset').onclick = () =>
-  presetModal.style.display = 'none';
+function presetDisplayValue(grams) {
+    return proteinUnit === 'oz' ? (grams / G_PER_OZ).toFixed(1) : Math.round(grams);
+}
 
-presetModal.onclick = e => {
-  if (e.target === presetModal) presetModal.style.display = 'none';
+['S', 'M', 'L'].forEach(size => {
+    const inputEl = document.getElementById(`preset${size}`);
+    
+    // We use 'change' instead of 'input' to stop the "aberrant" number jumping
+    inputEl.addEventListener('change', (e) => {
+        const val = parseFloat(e.target.value);
+        if (!val || val < 1) return;
+
+        // Convert to grams for the Sacred Math
+        const grams = (proteinUnit === 'oz') ? Math.round(val * G_PER_OZ) : Math.round(val);
+        
+        // Update the master list and PERSIST to storage
+        foodPresets[size] = grams;
+        localStorage.setItem('inhaleFoodPresets', JSON.stringify(foodPresets));
+
+        // If this size is currently selected on the main screen, update the app state
+        if (activeProteinSize === size) {
+            weightInGrams = grams;
+            localStorage.setItem('inhaleWeightGrams', weightInGrams);
+            // No need to call calc() here, updateProteinDisplay() does it below
+        }
+    });
+});
+
+// 4. Close Pop-up
+// --- #3: FIXED CLOSE LOGIC ---
+// This ensures that as soon as you close the "wheel," the main screen updates
+const closeAndSync = () => {
+    presetModal.style.display = 'none';
+    updateProteinDisplay(); // This triggers your sacred calc() to refresh the dose
 };
 
+document.getElementById('close-preset').onclick = closeAndSync;
+
+// Closes the pop-up if the user taps the dark area outside the box
+window.onclick = (event) => {
+    if (event.target === presetModal) closeAndSync();
+};
+
+// --- 2. UI SYNC & TOGGLES ---
+function updateProteinDisplay() {
+    if (proteinUnit === 'oz') {
+        inputs.weight.value = (weightInGrams / G_PER_OZ).toFixed(1);
+    } else {
+        inputs.weight.value = Math.round(weightInGrams);
+    }
+    // --- TOOLKIT: Adjusts the up/down arrows based on unit ---
+function adjustPresetSteps() {
+    const stepValue = (proteinUnit === 'oz') ? "0.1" : "5"; 
+    ['S', 'M', 'L'].forEach(size => {
+    const inputEl = document.getElementById(`preset${size}`);
+    
+    // 'blur' is the most reliable event—it fires when the user clicks out
+    inputEl.addEventListener('blur', function() {
+        const val = parseFloat(this.value);
+        if (isNaN(val) || val <= 0) return;
+
+        // Convert and Save
+        const grams = (proteinUnit === 'oz') ? (val * G_PER_OZ) : val;
+        foodPresets[size] = grams;
+        localStorage.setItem('inhaleFoodPresets', JSON.stringify(foodPresets));
+
+        // If this is the active size, update the global state
+        if (activeProteinSize === size) {
+            weightInGrams = grams;
+            localStorage.setItem('inhaleWeightGrams', grams);
+        }
+    });
+});
+}
+    document.getElementById('unit-g').classList.toggle('active', proteinUnit === 'g');
+    document.getElementById('unit-oz').classList.toggle('active', proteinUnit === 'oz');
+    document.getElementById('mode-average').classList.toggle('active', currentMode === 'average');
+    document.getElementById('mode-fast').classList.toggle('active', currentMode === 'fast');
+    calc();
+}
+
+// Button Click Handlers
+document.getElementById('unit-g').onclick = () => {
+    proteinUnit = 'g';
+    localStorage.setItem('proteinUnit', 'g');
+    // Ensure the main display and math refresh instantly
+    updateProteinDisplay(); 
+};
+
+document.getElementById('unit-oz').onclick = () => {
+    proteinUnit = 'oz';
+    localStorage.setItem('proteinUnit', 'oz');
+    // Ensure the main display and math refresh instantly
+    updateProteinDisplay();
+};
+//document.getElementById('unit-g').onclick = () => { proteinUnit = 'g'; localStorage.setItem('proteinUnit', 'g'); updateProteinDisplay(); };
+//document.getElementById('unit-oz').onclick = () => { proteinUnit = 'oz'; localStorage.setItem('proteinUnit', 'oz'); updateProteinDisplay(); };
+document.getElementById('mode-average').onclick = () => { currentMode = 'average'; localStorage.setItem('inhaleMode', 'average'); updateProteinDisplay(); };
+document.getElementById('mode-fast').onclick = () => { currentMode = 'fast'; localStorage.setItem('inhaleMode', 'fast'); updateProteinDisplay(); };
 
 function setFoodWeightPreset(size) {
-  const g = foodPresets[size];
-  if (!g) return;
+    // 1. Set which size is now "Active"
+    activeProteinSize = size;
+    localStorage.setItem('inhaleActiveProteinSize', size);
 
-  inputs.weight.value = g;
-  calc();
-  updateProteinDisplay();
+    // 2. Pull the gram value from your custom settings
+    weightInGrams = foodPresets[size];
+    localStorage.setItem('inhaleWeightGrams', weightInGrams);
 
+    // 3. Update UI and run your Sacred Calc
+    updateProteinDisplay();
+    
+    // Highlight the active button visually
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.includes(size) || btn.getAttribute('onclick')?.includes(`'${size}'`));
+    });
 }
 
+// --- 3. THE SACRED ALGORITHM (Restored & Untouched) ---
+/**
+ * "SACRED" ALGORITHM: Protein/Fat-Adjusted Insulin Delivery
+ * Accounts for gastric emptying delay and protein-to-glucose conversion.
+ * DO NOT modify the core bio-factors or penalty heuristics without 
+ * significant clinical test data.
+ */
+function calc() {
+    let c = parseFloat(inputs.carbs.value) || 0;
+    let w_g = weightInGrams; // Source of truth
+    let p_g = w_g * 0.21;
+    let protein_factor = inputs.proteinFactor.value / 100;
+    let protein_as_carbs = p_g * protein_factor;
 
-        let currentMode = 'average';
+    inputs.proteinCalc.textContent = `≈ ${Math.round(p_g)} g protein (+ ${Math.round(protein_as_carbs)} g equiv.) + ${c} g real carbs`;
 
-        const modeButtons = {
-            average: document.getElementById('mode-average'),
-            fast: document.getElementById('mode-fast')
-        };
+    let acr = parseFloat(inputs.acr.value) || 35;
+    if (acr <= 0) acr = 35;
 
-        const modal = document.getElementById('tutorial-modal');
-        document.getElementById('open-tutorial').onclick = () => modal.style.display = 'flex';
-        document.getElementById('close-tutorial').onclick = () => modal.style.display = 'none';
-        modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+    let ratio = p_g > 0 ? c / p_g : 1.0;
+    let pgf_multiplier = 1.0;
+    let bio_factor = 2.0;
+    let min_pre = 0.65;
 
-        function setMode(mode) {
-            currentMode = mode;
-            Object.keys(modeButtons).forEach(k => modeButtons[k].classList.toggle('active', k === mode));
-            localStorage.setItem('inhaleMode', mode);
-            calc();
-        }
+    if (ratio < 0.3) {
+        pgf_multiplier = 0.8;
+        bio_factor = 1.5;
+        min_pre = 0.55;
+    } else if (ratio >= 0.8) {
+        pgf_multiplier = 1.1;
+        bio_factor = 2.0;
+        min_pre = 0.75;
+    }
 
-        Object.keys(modeButtons).forEach(k => modeButtons[k].onclick = () => setMode(k));
+    protein_as_carbs *= pgf_multiplier;
 
-		
-        function getModeSettings() {
-            if (currentMode === 'fast') {
-                return { fatMult: 6, speedMult: 5, basePre: 0.88, prePenalty: 0.02, boldness: 1.1 };
-            }
-            return { fatMult: 13, speedMult: 9, basePre: 0.95, prePenalty: 0.038, boldness: 1.1 };
-        }
-        
-        function setFoodWeight(g) {
-			inputs.weight.value = g;
-			calc();
-		}
+    // Dose Calculation
+    let carb_raw = (c / acr) * 4 * bio_factor;
+    let carb_now = carb_raw > 0 ? Math.ceil(carb_raw / 4) * 4 : 0;
+    let protein_raw = (protein_as_carbs / acr) * 4 * bio_factor;
+    let protein_total = protein_raw > 0 ? Math.ceil(protein_raw / 4) * 4 : 0;
 
-/*
-  === CORE DOSING ENGINE ===
-  This section implements Afrezza-specific dosing logic
-  developed through extensive personal experimentation
-  and real-world iteration.
+    // Timing & Mode Heuristics
+    const settings = (currentMode === 'fast') 
+        ? { fatMult: 6, speedMult: 5, basePre: 0.88, prePenalty: 0.02 }
+        : { fatMult: 13, speedMult: 9, basePre: 0.95, prePenalty: 0.038 };
 
-  It reflects physiological assumptions, timing heuristics,
-  and safety constraints specific to inhaled insulin.
+    let pre_ratio = settings.basePre - (parseInt(inputs.fatLoad.value) + parseInt(inputs.proteinSpeed.value)) * settings.prePenalty;
+    pre_ratio = Math.max(min_pre, Math.min(0.96, pre_ratio));
 
-  Commercial use, extraction, reuse, or derivative works
-  of this logic are prohibited outside the terms of the
-  Polyform Noncommercial license.
-*/
+    let protein_pre_raw = protein_raw * pre_ratio;
+    let protein_pre = Math.ceil(protein_pre_raw / 4) * 4;
+    let protein_later = protein_total - protein_pre;
 
+    // Safety Split Check
+    if (protein_total >= 8 && protein_pre >= protein_total) {
+        protein_pre = protein_total - 4;
+        protein_later = protein_total - protein_pre;
+    }
 
-	function calc() {
-			if (isNaN(inputs.weight.value) || inputs.weight.value <= 0) {
-				console.warn("Invalid weight input");
-			}
+    let pre = carb_now + protein_pre;
+    let later = protein_later;
 
-            let c = parseFloat(inputs.carbs.value) || 0;
-            let w_g = parseFloat(inputs.weight.value) || 0;
-            let p_g = w_g * 0.21;
-            let protein_factor = inputs.proteinFactor.value / 100;
+    // Sensitivity Adjustment
+    let adj = 1 + (parseInt(inputs.sensitivityAdjust.value || 0) / 100);
+    pre = Math.max(0, Math.round(pre * adj / 4) * 4);
+    later = Math.max(0, Math.round(later * adj / 4) * 4);
 
-            let protein_as_carbs = p_g * protein_factor;
+    // Timing Output
+    let baseDelayMin = (parseInt(inputs.proteinSpeed.value) * settings.speedMult) + (parseInt(inputs.fatLoad.value) * settings.fatMult);
+    let h = Math.floor(baseDelayMin / 60);
+    let m = Math.round(baseDelayMin % 60);
 
-            inputs.proteinCalc.textContent = `≈ ${Math.round(p_g)} g protein (+ ${Math.round(protein_as_carbs)} g equiv.) + ${c} g real carbs`;
-
-            let acr = parseFloat(inputs.acr.value) || 35;
-            if (acr <= 0) acr = 35;
-
-            let ratio = p_g > 0 ? c / p_g : 1.0;
-
-            let pgf_multiplier = 1.0;
-            let bio_factor = 2.0;
-            let min_pre = 0.65;
-            if (ratio < 0.3) {
-                pgf_multiplier = 0.8;
-                bio_factor = 1.5;
-                min_pre = 0.55;
-            } else if (ratio >= 0.8) {
-                pgf_multiplier = 1.1;
-                bio_factor = 2.0;
-                min_pre = 0.75;
-            }
-
-            protein_as_carbs *= pgf_multiplier;
-
-            let carb_raw = (c / acr) * 4 * bio_factor;
-            let carb_now = carb_raw > 0 ? Math.ceil(carb_raw / 4) * 4 : 0;
-
-            let protein_raw = (protein_as_carbs / acr) * 4 * bio_factor;
-            let protein_total = protein_raw > 0 ? Math.ceil(protein_raw / 4) * 4 : 0;
-
-            const settings = getModeSettings();
-
-            let pre_ratio = settings.basePre - (inputs.fatLoad.value + inputs.proteinSpeed.value) * settings.prePenalty;
-            pre_ratio = Math.max(min_pre, Math.min(0.96, pre_ratio));
-
-          let protein_pre_raw = protein_raw * pre_ratio;
-let protein_pre = Math.ceil(protein_pre_raw / 4) * 4;
-let protein_later = protein_total - protein_pre;
-
-// Protect delayed insulin for meaningful protein loads
-if (protein_total >= 8 && protein_pre >= protein_total) {
-  protein_pre = protein_total - 4;
-  protein_later = protein_total - protein_pre;
+    // UI Output
+    inputs.result.textContent = `NOW: ${pre} u`;
+    inputs.delayed.textContent = later > 0 ? `Then ${later} u in ${h ? h+' h ' : ''}${m} min` : '(no follow-up)';
+    
+    inputs.pVal.textContent = inputs.proteinSpeed.value;
+    inputs.fVal.textContent = inputs.fatLoad.value;
+    inputs.pfVal.textContent = protein_factor.toFixed(2);
+    inputs.sensVal.textContent = adj === 1 ? 'No adjustment' : (adj > 1 ? `+${inputs.sensitivityAdjust.value}%` : `${inputs.sensitivityAdjust.value}%`);
 }
 
-let pre = carb_now + protein_pre;
-let later = protein_later;
-
-
-            // Apply temporary sensitivity AFTER split & rounding to preserve Afrezza cartridge granularity
-
-
-            let baseDelayMin = inputs.proteinSpeed.value * settings.speedMult + inputs.fatLoad.value * settings.fatMult;
-            let h = Math.floor(baseDelayMin / 60);
-            let m = Math.round(baseDelayMin % 60);
-			// === Temporary sensitivity / resistance adjustment ===
-			let adj = parseInt(inputs.sensitivityAdjust.value || 0);
-			let adjMult = 1 + adj / 100;
-
-			pre = Math.max(0, Math.round(pre * adjMult / 4) * 4);
-			later = Math.max(0, Math.round(later * adjMult / 4) * 4);
-            inputs.result.textContent = `NOW: ${pre} u`;
-            inputs.delayed.textContent = later > 0 ? `Then ${later} u in ${h ? h+' h ' : ''}${m} min` : '(no follow-up)';
-
-            inputs.pVal.textContent = inputs.proteinSpeed.value;
-            inputs.fVal.textContent = inputs.fatLoad.value;
-            inputs.pfVal.textContent = protein_factor.toFixed(2);
-
-        }
-
-
-
-        // Persistence
-        if (localStorage.getItem('inhaleMode')) {
-            const saved = localStorage.getItem('inhaleMode');
-            if (saved === 'ultra') setMode('average');
-            else setMode(saved);
-        }
-        if (localStorage.getItem('inhaleACR')) inputs.acr.value = localStorage.getItem('inhaleACR');
-        if (localStorage.getItem('inhalePF')) inputs.proteinFactor.value = localStorage.getItem('inhalePF');
-
-        inputs.acr.addEventListener('input', () => localStorage.setItem('inhaleACR', inputs.acr.value));
-        inputs.proteinFactor.addEventListener('input', () => {
-            localStorage.setItem('inhalePF', inputs.proteinFactor.value);
-            calc();
-        });
-
-        document.querySelectorAll('input').forEach(i => i.addEventListener('input', calc));
+// --- 4. INITIALIZATION ---
+[inputs.acr, inputs.carbs, inputs.proteinFactor, inputs.proteinSpeed, inputs.fatLoad, inputs.sensitivityAdjust].forEach(el => {
+    el.addEventListener('input', () => {
+        if(el.id === 'acr') localStorage.setItem('inhaleACR', el.value);
+        if(el.id === 'proteinFactor') localStorage.setItem('inhalePF', el.value);
         calc();
+    });
+});
+
+// At the very end of your script
+adjustPresetSteps(); 
+updateProteinDisplay(); 
     </script>
     <!-- PWA Install Logic -->
 <script>
