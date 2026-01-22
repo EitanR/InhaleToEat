@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inhale-to-eat-v1.0.3';
+const CACHE_NAME = 'inhale-to-eat-v1.0.4';
 self.addEventListener('install', event => {
   self.skipWaiting();
 });
@@ -16,6 +16,7 @@ const ASSETS = [
   './',
   './index.html',
   './manifest.json',
+  './icon.png',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
