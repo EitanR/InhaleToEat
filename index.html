@@ -438,10 +438,9 @@ input[type=number] {
 
 
 }
-
-
-    </style>
+	</style>
 </head>
+	
 <body>
     <!-- ================= MAIN APP UI ================= -->
   <div class="container">
@@ -629,12 +628,15 @@ input[type=number] {
 
   
     <!-- Main App Script -->
-    <script>
+<script>
 		//let proteinUnit = localStorage.getItem('proteinUnit') || 'g';
 // --- 1. SETTINGS & PERSISTENCE ---
 const G_PER_OZ = 28.3495;
 const DEFAULT_FOOD_PRESETS = { S: 100, M: 200, L: 300 };
 
+	// Look for a saved ACR, otherwise default to 35
+let savedACR = localStorage.getItem('inhaleACR') || 35;
+inputs.acr.value = savedACR;
 let proteinUnit = localStorage.getItem('proteinUnit') || 'g';
 let currentMode = localStorage.getItem('inhaleMode') || 'average';
 let weightInGrams = parseFloat(localStorage.getItem('inhaleWeightGrams')) || 300;
@@ -777,6 +779,10 @@ document.getElementById('unit-oz').onclick = () => {
 document.getElementById('mode-average').onclick = () => { currentMode = 'average'; localStorage.setItem('inhaleMode', 'average'); updateProteinDisplay(); };
 document.getElementById('mode-fast').onclick = () => { currentMode = 'fast'; localStorage.setItem('inhaleMode', 'fast'); updateProteinDisplay(); };
 
+	inputs.acr.addEventListener('input', () => {
+    localStorage.setItem('inhaleACR', inputs.acr.value);
+    calc();
+});
 function setFoodWeightPreset(size) {
     // 1. Set which size is now "Active"
     activeProteinSize = size;
@@ -889,6 +895,8 @@ function calc() {
 
 // At the very end of your script
 adjustPresetSteps(); 
+// Final Sync
+inputs.acr.value = localStorage.getItem('inhaleACR') || 35;
 updateProteinDisplay(); 
     </script>
     <!-- PWA Install Logic -->
