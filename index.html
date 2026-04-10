@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.0.4 (December 2025)
+  Version: 1.0.5 (April 2026)
   Author: Eitan Rosa
 
   Licensed under Polyform Noncommercial 1.0.0
@@ -485,7 +485,7 @@ input[type=number] {
         </div>
 
         <p class="slider-label">
-            Protein → Glucose Factor
+            Protein → Glucose
             <span class="tooltip" data-tip="0.60 default. Low-carb often 0.6–0.8">ℹ️</span>
         </p>
         <div class="pgf-block">
@@ -502,35 +502,37 @@ input[type=number] {
                 Fast Digester ⚡<br><span class="mode-desc">Quicker / less delay</span>
             </button>
         </div>
-    </div> <div class="input-section">
-        <label class="big-input label">Real carbs (g) <span class="tooltip" data-tip="Fast-acting carbs">ℹ️</span>:</label>
-        <input type="number" class="big-input" id="carbs" value="0">
+    </div> 
+	  
+	<div class="input-section">
 
-        <label class="big-input label">Protein portion <span class="tooltip" data-tip="~300g ≈ 10–11 oz">ℹ️</span>:</label>
-        <div class="row" style="gap:5px;">
-             <input
-				type="number"
-				step="10"
-				class="big-input"
-				id="weight"
-				value="300"
-				readonly
-			>
+  <div class="input-group">
+    <label class="label">
+      Real carbs (g)
+      <span class="tooltip" data-tip="Fast-acting carbs">ℹ️</span>
+    </label>
+    <input type="number" class="big-input" id="carbs" value="0">
+  </div>
 
-             <button id="openPresetSettings" class="tutorial-btn" style="margin:0;">⚙️</button>
-        </div>
-        
-        <div class="unit-toggle" style="margin-top:10px; display:flex; justify-content:center; gap:10px;">
-            <button id="unit-g" class="mode-btn">g</button>
-            <button id="unit-oz" class="mode-btn">oz</button>
-        </div>
+  <div class="input-group">
+    <label class="label">
+      Protein portion
+      <span class="tooltip" data-tip="~300g ≈ 10–11 oz">ℹ️</span>
+    </label>
 
-        <div class="preset-row">
-            <button class="preset-btn" onclick="setFoodWeightPreset('S')">Small</button>
-            <button class="preset-btn" onclick="setFoodWeightPreset('M')">Medium</button>
-            <button class="preset-btn" onclick="setFoodWeightPreset('L')">Large</button>
-        </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <input
+        type="number"
+        step="10"
+        class="big-input"
+        id="weight"
+        value="300"
+        readonly
+      >
+      <button id="openPresetSettings" class="tutorial-btn" style="margin:0;">⚙️</button>
+		<button class="preset-btn" onclick="setFoodWeightPreset('N')">None</button>
     </div>
+  </div>
 
     </div>
 
@@ -552,7 +554,9 @@ input[type=number] {
         </div>
 
         <div id="proteinCalc">≈ 63 g protein (+ 38 g equiv.) + 0 g real carbs</div>
-        <div id="result">NOW: 8 u</div>
+       <div id="result">
+  NOW: 8 u <span id="doseHint"></span>
+</div>
         <div id="delayed">(no follow-up)</div>
 
        <div class="kofi">
@@ -643,7 +647,7 @@ input[type=number] {
 		
 // --- 1. SETTINGS & CONSTANTS ---
 const G_PER_OZ = 28.3495;
-const DEFAULT_FOOD_PRESETS = { S: 100, M: 200, L: 300 };
+const DEFAULT_FOOD_PRESETS = { N: 0, S: 100, M: 200, L: 300 };
 
 // --- 2. THE PERSISTENCE ENGINE (Loads your 45-50 ACR) ---
 function loadSavedSettings() {
@@ -848,6 +852,15 @@ function calc() {
     inputs.fVal.textContent = inputs.fatLoad.value;
     inputs.pfVal.textContent = protein_factor.toFixed(2);
     inputs.sensVal.textContent = adj === 1 ? 'No adjustment' : (adj > 1 ? `+${inputs.sensitivityAdjust.value}%` : `${inputs.sensitivityAdjust.value}%`);
+	const hint = document.getElementById('doseHint');
+
+if (pre > 0 && pre <= 4) {
+  hint.textContent = " ⚠️";
+  hint.style.fontSize = "0.4em";
+  hint.title = "Borderline dose — use judgment";
+} else {
+  hint.textContent = "";
+}
 }
 
 // --- 7. STARTUP SEQUENCE ---
