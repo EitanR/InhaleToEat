@@ -491,34 +491,31 @@ input[type=number] {
                 Fast Digester ⚡<br><span class="mode-desc">Quicker / less delay</span>
             </button>
         </div>
-    </div> <div class="input-section">
+    </div> <div class="input-section" style="display: flex; gap: 20px; justify-content: center;">
+    <div style="text-align: center;">
         <label class="big-input label">Real carbs (g) <span class="tooltip" data-tip="Fast-acting carbs">ℹ️</span>:</label>
         <input type="number" class="big-input" id="carbs" value="0">
+    </div>
 
+    <div style="text-align: center;">
         <label class="big-input label">Protein portion<span class="tooltip" data-tip="~300g ≈ 10–11 oz">ℹ️</span>:</label>
-        <div class="row" style="gap:5px;">
-             <input
-				type="number"
-				step="10"
-				class="big-input"
-				id="weight"
-				value="300"
-				readonly
-			>
+        <div class="row" style="gap:5px; justify-content: center;">
+            <input type="number" step="10" class="big-input" id="weight" value="300" readonly>
+            <button id="openPresetSettings" class="tutorial-btn" style="margin:0;">⚙️</button>
+        </div>
+    </div>
+</div>
 
-             <button id="openPresetSettings" class="tutorial-btn" style="margin:0;">⚙️</button>
-        </div>
-        
-        <div class="unit-toggle" style="margin-top:10px; display:flex; justify-content:center; gap:10px;">
-            <button id="unit-g" class="mode-btn">g</button>
-            <button id="unit-oz" class="mode-btn">oz</button>
-        </div>
+<div class="unit-toggle" style="display:flex; justify-content:center; gap:10px; margin-top:10px;">
+    <button id="unit-g" class="mode-btn">g</button>
+    <button id="unit-oz" class="mode-btn">oz</button>
+</div>
 
-        <div class="preset-row">
-            <button class="preset-btn" onclick="setFoodWeightPreset('S')">Small</button>
-            <button class="preset-btn" onclick="setFoodWeightPreset('M')">Medium</button>
-            <button class="preset-btn" onclick="setFoodWeightPreset('L')">Large</button>
-        </div>
+<div class="preset-row">
+    <button class="preset-btn" onclick="setFoodWeightPreset('S')">Small</button>
+    <button class="preset-btn" onclick="setFoodWeightPreset('M')">Medium</button>
+    <button class="preset-btn" onclick="setFoodWeightPreset('L')">Large</button>
+</div>
     </div>
 
     </div>
