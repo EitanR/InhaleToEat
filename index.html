@@ -30,11 +30,12 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.0.4"
+  version: "1.0.5"
 };
 </script>
  
     <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-192.png">
 <meta name="theme-color" content="#1a1a2e">
 
  <script>
@@ -360,6 +361,48 @@ input[type=number] {
   height: 46px;
   border: none;
 }
+
+/* --- Profile switcher & manager --- */
+.profile-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 20px;
+  flex-wrap: wrap;
+}
+.profile-bar select {
+  font-size: 1.1em;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #333;
+  color: #eee;
+  border: 2px solid #555;
+  max-width: 60vw;
+}
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #333;
+}
+.profile-row span.name {
+  flex: 1;
+  font-size: 1.2em;
+  cursor: pointer;
+}
+.profile-row input.rename-input {
+  flex: 1;
+  font-size: 1.2em;
+  padding: 6px;
+  border-radius: 6px;
+  border: none;
+}
+.profile-delete-btn {
+  background: #ff6b6b;
+  border-color: #ff6b6b;
+}
 @supports (-webkit-touch-callout: none) {
   .container {
     padding-left: 18px;
@@ -446,6 +489,11 @@ input[type=number] {
   <div class="container">
     <h1>InhaleToEat 🥩💨</h1>
     <p class="subtitle">Afrezza dosing • Apr 10 2026</p>
+
+    <div class="profile-bar">
+        <select id="profileSelect"></select>
+        <button class="tutorial-btn" id="manageProfilesBtn" style="margin:0;">👤 Manage profiles</button>
+    </div>
 
     <div class="welcome">
         Now a full Progressive Web App.<br>
@@ -552,13 +600,6 @@ input[type=number] {
           </a>
         </div>
 
-<div class="row full">
-  <div class="slider-container">
-    …
-  </div>
-</div>
-
-
 <p class="new-feature">
   InhaleToEat v<span id="app-version"></span>
   · build <span id="build-id"></span>
@@ -623,6 +664,22 @@ input[type=number] {
 		</div>
 	</div> <!-- closes #preset-modal -->
 
+	<div id="profile-modal" class="modal">
+		<div class="modal-content">
+			<span class="close" id="close-profile-modal">×</span>
+			<h2>Manage profiles</h2>
+			<p style="color:#aaa;margin-bottom:10px;">
+      Each profile keeps its own ACR, protein factor, portion presets, unit, and digestion mode. Up to 6 profiles per device.
+			</p>
+			<div id="profileList"></div>
+			<div class="row" style="margin-top:20px;">
+				<input type="text" id="newProfileName" placeholder="New profile name" style="flex:1;font-size:1.2em;padding:10px;border-radius:8px;border:none;">
+				<button id="addProfileBtn" class="mode-btn" style="flex:0;">Add</button>
+			</div>
+			<p id="profileLimitMsg" style="color:#ff9d9d;display:none;margin-top:10px;">Maximum of 6 profiles reached on this device. Delete one to add another.</p>
+		</div>
+	</div> <!-- closes #profile-modal -->
+
   
     <!-- Main App Script -->
 <script>
@@ -630,30 +687,87 @@ input[type=number] {
 // --- 1. SETTINGS & CONSTANTS ---
 const G_PER_OZ = 28.3495;
 const DEFAULT_FOOD_PRESETS = { S: 100, M: 200, L: 300 };
+const MAX_PROFILES = 6;
+const PROFILES_KEY = 'itk_profiles';
+const ACTIVE_PROFILE_KEY = 'itk_activeProfile';
 
-// --- 2. THE PERSISTENCE ENGINE (Loads your 45-50 ACR) ---
-function loadSavedSettings() {
-    // Load ACR
-    const savedACR = localStorage.getItem('inhaleACR');
-    if (savedACR) document.getElementById('acr').value = savedACR;
-
-    // Load Protein Factor
-    const savedPF = localStorage.getItem('inhalePF');
-    if (savedPF) document.getElementById('proteinFactor').value = savedPF;
-
-    // Load Unit and Mode
-    proteinUnit = localStorage.getItem('proteinUnit') || 'g';
-    currentMode = localStorage.getItem('inhaleMode') || 'average';
-    weightInGrams = parseFloat(localStorage.getItem('inhaleWeightGrams')) || 300;
-
-    // Load Presets
-    const savedPresets = localStorage.getItem('inhaleFoodPresets');
-    if (savedPresets) {
-        try { foodPresets = JSON.parse(savedPresets); } 
-        catch (e) { foodPresets = DEFAULT_FOOD_PRESETS; }
-    } else {
-        foodPresets = DEFAULT_FOOD_PRESETS;
+// --- 1b. PROFILE STORE ---
+// One-time migration: if no profile store exists yet, but the old flat
+// inhaleACR/inhalePF/etc keys do, fold them into a single "Default" profile
+// so nobody's existing settings vanish when this update lands.
+function loadProfiles() {
+    let raw = localStorage.getItem(PROFILES_KEY);
+    let profiles = null;
+    if (raw) {
+        try { profiles = JSON.parse(raw); } catch (e) { profiles = null; }
     }
+    if (!profiles || Object.keys(profiles).length === 0) {
+        const legacyACR = localStorage.getItem('inhaleACR') || '35';
+        const legacyPF = localStorage.getItem('inhalePF') || '60';
+        const legacyUnit = localStorage.getItem('proteinUnit') || 'g';
+        const legacyMode = localStorage.getItem('inhaleMode') || 'average';
+        const legacyWeight = parseFloat(localStorage.getItem('inhaleWeightGrams')) || 300;
+        let legacyPresets = { ...DEFAULT_FOOD_PRESETS };
+        const savedPresets = localStorage.getItem('inhaleFoodPresets');
+        if (savedPresets) {
+            try { legacyPresets = JSON.parse(savedPresets); } catch (e) {}
+        }
+        const id = 'p_' + Date.now();
+        profiles = {
+            [id]: {
+                name: 'Default',
+                acr: legacyACR,
+                pf: legacyPF,
+                unit: legacyUnit,
+                mode: legacyMode,
+                weightGrams: legacyWeight,
+                foodPresets: legacyPresets
+            }
+        };
+        localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+        localStorage.setItem(ACTIVE_PROFILE_KEY, id);
+    }
+    return profiles;
+}
+
+function saveProfiles(profiles) {
+    localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+}
+
+function getActiveProfile() {
+    const profiles = loadProfiles();
+    let id = localStorage.getItem(ACTIVE_PROFILE_KEY);
+    if (!id || !profiles[id]) {
+        id = Object.keys(profiles)[0];
+        localStorage.setItem(ACTIVE_PROFILE_KEY, id);
+    }
+    return { id, profiles };
+}
+
+function setActiveProfileId(id) {
+    localStorage.setItem(ACTIVE_PROFILE_KEY, id);
+}
+
+// Every settings write in the app funnels through here now, instead of
+// hitting flat localStorage keys directly, so each profile stays isolated.
+function updateActiveProfile(patch) {
+    const { id, profiles } = getActiveProfile();
+    profiles[id] = { ...profiles[id], ...patch };
+    saveProfiles(profiles);
+}
+
+// --- 2. THE PERSISTENCE ENGINE (loads the active profile's settings) ---
+function loadSavedSettings() {
+    const { id, profiles } = getActiveProfile();
+    const p = profiles[id];
+
+    document.getElementById('acr').value = p.acr;
+    document.getElementById('proteinFactor').value = p.pf;
+
+    proteinUnit = p.unit;
+    currentMode = p.mode;
+    weightInGrams = p.weightGrams;
+    foodPresets = p.foodPresets || { ...DEFAULT_FOOD_PRESETS };
 }
 
 // Global state variables
@@ -698,10 +812,10 @@ function presetDisplayValue(grams) {
         if (isNaN(val) || val <= 0) return;
         const grams = (proteinUnit === 'oz') ? (val * G_PER_OZ) : val;
         foodPresets[size] = grams;
-        localStorage.setItem('inhaleFoodPresets', JSON.stringify(foodPresets));
+        updateActiveProfile({ foodPresets });
         if (activeProteinSize === size) {
             weightInGrams = grams;
-            localStorage.setItem('inhaleWeightGrams', grams);
+            updateActiveProfile({ weightGrams: grams });
         }
     });
 });
@@ -715,6 +829,9 @@ window.onclick = (event) => {
     if (event.target === presetModal) {
         presetModal.style.display = 'none';
         updateProteinDisplay();
+    }
+    if (event.target === document.getElementById('profile-modal')) {
+        document.getElementById('profile-modal').style.display = 'none';
     }
 };
 
@@ -736,36 +853,194 @@ function updateProteinDisplay() {
 function setFoodWeightPreset(size) {
     activeProteinSize = size;
     weightInGrams = foodPresets[size];
-    localStorage.setItem('inhaleWeightGrams', weightInGrams);
+    updateActiveProfile({ weightGrams: weightInGrams });
     updateProteinDisplay();
 }
 
 // --- 5. UNIT TOGGLES ---
 document.getElementById('unit-g').onclick = () => {
     proteinUnit = 'g';
-    localStorage.setItem('proteinUnit', 'g');
+    updateActiveProfile({ unit: 'g' });
     updateProteinDisplay(); 
 };
 
 document.getElementById('unit-oz').onclick = () => {
     proteinUnit = 'oz';
-    localStorage.setItem('proteinUnit', 'oz');
+    updateActiveProfile({ unit: 'oz' });
     updateProteinDisplay();
 };
 
 document.getElementById('mode-average').onclick = () => { 
     currentMode = 'average'; 
-    localStorage.setItem('inhaleMode', 'average'); 
+    updateActiveProfile({ mode: 'average' }); 
     updateProteinDisplay(); 
 };
 
 document.getElementById('mode-fast').onclick = () => { 
     currentMode = 'fast'; 
-    localStorage.setItem('inhaleMode', 'fast'); 
+    updateActiveProfile({ mode: 'fast' }); 
     updateProteinDisplay(); 
 };
 
-// --- 6. THE SACRED ALGORITHM (Your Logic) ---
+// --- 5b. PROFILE SWITCHER + MANAGER ---
+function renderProfileSelect() {
+    const { id, profiles } = getActiveProfile();
+    const sel = document.getElementById('profileSelect');
+    sel.innerHTML = '';
+    Object.keys(profiles).forEach(pid => {
+        const opt = document.createElement('option');
+        opt.value = pid;
+        opt.textContent = profiles[pid].name;
+        if (pid === id) opt.selected = true;
+        sel.appendChild(opt);
+    });
+}
+
+document.getElementById('profileSelect').addEventListener('change', function() {
+    setActiveProfileId(this.value);
+    loadSavedSettings();
+    updateProteinDisplay();
+    renderProfileList();
+});
+
+document.getElementById('manageProfilesBtn').onclick = () => {
+    renderProfileList();
+    document.getElementById('profile-modal').style.display = 'flex';
+};
+
+document.getElementById('close-profile-modal').onclick = () => {
+    document.getElementById('profile-modal').style.display = 'none';
+};
+
+function renderProfileList() {
+    const { id: activeId, profiles } = getActiveProfile();
+    const container = document.getElementById('profileList');
+    container.innerHTML = '';
+
+    Object.keys(profiles).forEach(pid => {
+        const p = profiles[pid];
+        const row = document.createElement('div');
+        row.className = 'profile-row';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'name';
+        nameSpan.textContent = p.name + (pid === activeId ? ' (active)' : '');
+        nameSpan.title = 'Tap to rename';
+        nameSpan.onclick = () => startRename(pid, row, nameSpan);
+        row.appendChild(nameSpan);
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '🗑';
+        delBtn.className = 'tutorial-btn';
+        delBtn.style.margin = '0';
+        delBtn.onclick = () => confirmDelete(pid, row);
+        row.appendChild(delBtn);
+
+        container.appendChild(row);
+    });
+
+    const atCap = Object.keys(profiles).length >= MAX_PROFILES;
+    document.getElementById('profileLimitMsg').style.display = atCap ? 'block' : 'none';
+    document.getElementById('addProfileBtn').disabled = atCap;
+}
+
+function startRename(pid, row, nameSpan) {
+    const { profiles } = getActiveProfile();
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'rename-input';
+    input.value = profiles[pid].name;
+    row.replaceChild(input, nameSpan);
+    input.focus();
+    input.select();
+
+    const commit = () => {
+        const val = input.value.trim();
+        if (val) {
+            const { profiles: p2 } = getActiveProfile();
+            p2[pid].name = val;
+            saveProfiles(p2);
+        }
+        renderProfileList();
+        renderProfileSelect();
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+}
+
+// Delete requires an explicit inline confirm step (row turns into a
+// "Delete X? / Cancel" prompt) rather than deleting on first tap, since
+// this wipes that person's calibrated ACR/protein factor permanently.
+function confirmDelete(pid, row) {
+    const { id: activeId, profiles } = getActiveProfile();
+    if (Object.keys(profiles).length <= 1) {
+        alert("Can't delete the only profile on this device.");
+        return;
+    }
+
+    row.innerHTML = '';
+    const msg = document.createElement('span');
+    msg.className = 'name';
+    msg.style.color = '#ff9d9d';
+    msg.textContent = `Delete "${profiles[pid].name}"? This can't be undone.`;
+    row.appendChild(msg);
+
+    const yesBtn = document.createElement('button');
+    yesBtn.textContent = 'Delete';
+    yesBtn.className = 'mode-btn profile-delete-btn';
+    yesBtn.style.margin = '0';
+    yesBtn.onclick = () => {
+        const { profiles: p2 } = getActiveProfile();
+        delete p2[pid];
+        saveProfiles(p2);
+        if (pid === activeId) {
+            const newActive = Object.keys(p2)[0];
+            setActiveProfileId(newActive);
+            loadSavedSettings();
+            updateProteinDisplay();
+        }
+        renderProfileList();
+        renderProfileSelect();
+    };
+    row.appendChild(yesBtn);
+
+    const noBtn = document.createElement('button');
+    noBtn.textContent = 'Cancel';
+    noBtn.className = 'tutorial-btn';
+    noBtn.style.margin = '0';
+    noBtn.onclick = () => renderProfileList();
+    row.appendChild(noBtn);
+}
+
+document.getElementById('addProfileBtn').onclick = () => {
+    const { profiles } = getActiveProfile();
+    if (Object.keys(profiles).length >= MAX_PROFILES) return;
+
+    const nameInput = document.getElementById('newProfileName');
+    const name = nameInput.value.trim();
+    if (!name) return;
+
+    const id = 'p_' + Date.now();
+    profiles[id] = {
+        name,
+        acr: '35',
+        pf: '60',
+        unit: 'g',
+        mode: 'average',
+        weightGrams: 300,
+        foodPresets: { ...DEFAULT_FOOD_PRESETS }
+    };
+    saveProfiles(profiles);
+    setActiveProfileId(id);
+    nameInput.value = '';
+
+    loadSavedSettings();
+    updateProteinDisplay();
+    renderProfileList();
+    renderProfileSelect();
+};
+
+// --- 6. THE SACRED ALGORITHM (Your Logic — untouched) ---
 function calc() {
     let c = parseFloat(inputs.carbs.value) || 0;
     let w_g = weightInGrams;
@@ -839,8 +1114,8 @@ function calc() {
 // --- 7. STARTUP SEQUENCE ---
 [inputs.acr, inputs.carbs, inputs.proteinFactor, inputs.proteinSpeed, inputs.fatLoad, inputs.sensitivityAdjust].forEach(el => {
     el.addEventListener('input', () => {
-        if(el.id === 'acr') localStorage.setItem('inhaleACR', el.value);
-        if(el.id === 'proteinFactor') localStorage.setItem('inhalePF', el.value);
+        if(el.id === 'acr') updateActiveProfile({ acr: el.value });
+        if(el.id === 'proteinFactor') updateActiveProfile({ pf: el.value });
         calc();
     });
 });
@@ -849,9 +1124,10 @@ function calc() {
 document.getElementById('open-tutorial').onclick = () => document.getElementById('tutorial-modal').style.display = 'flex';
 document.getElementById('close-tutorial').onclick = () => document.getElementById('tutorial-modal').style.display = 'none';
 
-// Run order: Settings -> UI -> Math
+// Run order: Profiles -> Settings -> UI -> Math
 loadSavedSettings();
 updateProteinDisplay();
+renderProfileSelect();
 </script>
  
     <!-- PWA Install Logic -->
