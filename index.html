@@ -539,6 +539,11 @@ input[type=number] {
                 Fast Digester ⚡<br><span class="mode-desc">Quicker / less delay</span>
             </button>
         </div>
+
+        <div class="row" style="justify-content:center; margin-top:15px;">
+            <button class="mode-btn" id="pizzaModeToggle" style="flex:0 1 auto;">🍕 Pizza Mode</button>
+        </div>
+        <p class="mode-desc" id="pizzaModeDesc" style="text-align:center;">Off — for high-fat, high-carb meals with slow, extended digestion (splits carbs like protein, adds a 2nd follow-up dose)</p>
     </div> <div class="input-section" style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
     <div style="text-align: center; width: 100%;">
         <label class="big-input label">Real carbs (g) <span class="tooltip" data-tip="Fast-acting carbs">ℹ️</span>:</label>
@@ -588,6 +593,7 @@ input[type=number] {
         <div id="proteinCalc">≈ 63 g protein (+ 38 g equiv.) + 0 g real carbs</div>
         <div id="result">NOW: 8 u</div>
         <div id="delayed">(no follow-up)</div>
+        <div id="delayed2" style="font-size:2em;color:#ffd93d;text-align:center;margin:10px 0;display:none;"></div>
 
        <div class="kofi">
           <p>
@@ -783,6 +789,7 @@ const inputs = {
     sensitivityAdjust: document.getElementById('sensitivityAdjust'),
     result: document.getElementById('result'),
     delayed: document.getElementById('delayed'),
+    delayed2: document.getElementById('delayed2'),
     proteinCalc: document.getElementById('proteinCalc'),
     pVal: document.getElementById('pVal'),
     fVal: document.getElementById('fVal'),
@@ -880,6 +887,21 @@ document.getElementById('mode-fast').onclick = () => {
     currentMode = 'fast'; 
     updateActiveProfile({ mode: 'fast' }); 
     updateProteinDisplay(); 
+};
+
+// --- 5c. PIZZA MODE ---
+// Meal-specific, like carbs/fatLoad/proteinSpeed — NOT saved to the
+// profile, since it's a property of this meal, not this person.
+// Off by default on every load; toggles per-calculation.
+let pizzaMode = false;
+
+document.getElementById('pizzaModeToggle').onclick = function() {
+    pizzaMode = !pizzaMode;
+    this.classList.toggle('active', pizzaMode);
+    document.getElementById('pizzaModeDesc').textContent = pizzaMode
+        ? 'On — carbs now split like protein, and the follow-up dose is spread across two checkpoints instead of one.'
+        : 'Off — for high-fat, high-carb meals with slow, extended digestion (splits carbs like protein, adds a 2nd follow-up dose)';
+    calc();
 };
 
 // --- 5b. PROFILE SWITCHER + MANAGER ---
@@ -1071,7 +1093,7 @@ function calc() {
     protein_as_carbs *= pgf_multiplier;
 
     let carb_raw = (c / acr) * 4 * bio_factor;
-    let carb_now = carb_raw > 0 ? Math.ceil(carb_raw / 4) * 4 : 0;
+    let carb_now_total = carb_raw > 0 ? Math.ceil(carb_raw / 4) * 4 : 0;
     let protein_raw = (protein_as_carbs / acr) * 4 * bio_factor;
     let protein_total = protein_raw > 0 ? Math.ceil(protein_raw / 4) * 4 : 0;
 
@@ -1091,19 +1113,57 @@ function calc() {
         protein_later = protein_total - protein_pre;
     }
 
-    let pre = carb_now + protein_pre;
-    let later = protein_later;
+    // Carbs: normally the entire carb dose goes into NOW, same as always.
+    // Pizza Mode splits carbs the same way protein is split, since a
+    // high-fat meal delays carb absorption too, not just protein's.
+    let carb_pre = carb_now_total;
+    let carb_later = 0;
+    if (pizzaMode) {
+        let carb_pre_raw = carb_raw * pre_ratio;
+        carb_pre = carb_now_total > 0 ? Math.ceil(carb_pre_raw / 4) * 4 : 0;
+        carb_later = carb_now_total - carb_pre;
+        if (carb_now_total >= 8 && carb_pre >= carb_now_total) {
+            carb_pre = carb_now_total - 4;
+            carb_later = carb_now_total - carb_pre;
+        }
+        if (carb_later < 0) carb_later = 0;
+    }
+
+    let pre = carb_pre + protein_pre;
+    let laterTotal = protein_later + carb_later;
 
     let adj = 1 + (parseInt(inputs.sensitivityAdjust.value || 0) / 100);
     pre = Math.max(0, Math.round(pre * adj / 4) * 4);
-    later = Math.max(0, Math.round(later * adj / 4) * 4);
+    laterTotal = Math.max(0, Math.round(laterTotal * adj / 4) * 4);
 
     let baseDelayMin = (parseInt(inputs.proteinSpeed.value) * settings.speedMult) + (parseInt(inputs.fatLoad.value) * settings.fatMult);
-    let h = Math.floor(baseDelayMin / 60);
-    let m = Math.round(baseDelayMin % 60);
 
     inputs.result.textContent = `NOW: ${pre} u`;
-    inputs.delayed.textContent = later > 0 ? `Then ${later} u in ${h ? h+' h ' : ''}${m} min` : '(no follow-up)';
+
+    const fmtDelay = (mins) => {
+        let h = Math.floor(mins / 60);
+        let m = Math.round(mins % 60);
+        return `${h ? h + ' h ' : ''}${m} min`;
+    };
+
+    if (!pizzaMode) {
+        // Original single-checkpoint behavior, byte-for-byte the same math as before.
+        inputs.delayed.textContent = laterTotal > 0 ? `Then ${laterTotal} u in ${fmtDelay(baseDelayMin)}` : '(no follow-up)';
+        inputs.delayed2.style.display = 'none';
+    } else {
+        // Pizza Mode: spread the later amount across two checkpoints instead
+        // of one, and push the window out further, since high-fat/high-carb
+        // meals keep releasing glucose well past what the base sliders assume.
+        let stage1Min = Math.round(baseDelayMin * 0.65);
+        let stage2Min = Math.round(baseDelayMin * 1.5);
+
+        let later1 = Math.round((laterTotal * 0.55) / 4) * 4;
+        let later2 = Math.max(0, laterTotal - later1);
+
+        inputs.delayed.textContent = later1 > 0 ? `Then ${later1} u in ${fmtDelay(stage1Min)}` : '(no follow-up)';
+        inputs.delayed2.textContent = later2 > 0 ? `Then ${later2} u more in ${fmtDelay(stage2Min)}` : '';
+        inputs.delayed2.style.display = later2 > 0 ? 'block' : 'none';
+    }
     
     inputs.pVal.textContent = inputs.proteinSpeed.value;
     inputs.fVal.textContent = inputs.fatLoad.value;
