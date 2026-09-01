@@ -960,7 +960,7 @@ function renderProfileList() {
 
         container.appendChild(row);
     });
-
+ 
     const atCap = Object.keys(profiles).length >= MAX_PROFILES;
     document.getElementById('profileLimitMsg').style.display = atCap ? 'block' : 'none';
     document.getElementById('addProfileBtn').disabled = atCap;
