@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inhale-to-eat-v1.0.5';
+const CACHE_NAME = 'inhale-to-eat-v1.0.6';
 
 const ASSETS = [
   './',
