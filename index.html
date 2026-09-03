@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.0.6 (August 2026) 
+  Version: 1.0.9 (Sep 2026) 
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.0.6"
+  version: "1.0.9"
 };
 </script>
  
@@ -44,9 +44,34 @@ if ('serviceWorker' in navigator) {
     try {
       const reg = await navigator.serviceWorker.register('./sw.js');
       console.log('SW registered:', reg.scope);
+
+      // Ask immediately whether a newer sw.js exists (byte-diff against
+      // what's installed), and keep asking periodically while the app
+      // stays open, since the browser otherwise only checks this on
+      // fresh navigations.
+      reg.update();
+      setInterval(() => reg.update(), 60 * 60 * 1000); // hourly while running
+
+      // Also re-check whenever the app comes back to the foreground —
+      // covers the common case of reopening after it's been backgrounded.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update();
+      });
     } catch (e) {
       console.error('SW registration failed:', e);
     }
+  });
+
+  // sw.js's install handler already calls self.skipWaiting(), so a
+  // detected update activates almost immediately without waiting for
+  // old tabs to close. Once it takes control, reload once so the page
+  // actually picks up the new assets instead of running on stale ones
+  // under a new worker. Guarded so this can only fire one reload.
+  let refreshedOnce = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshedOnce) return;
+    refreshedOnce = true;
+    window.location.reload();
   });
 }
 </script>
@@ -196,6 +221,10 @@ body {
             .slider::-webkit-slider-thumb {width:80px;height:80px;}
             .tooltip::after {font-size:1em;white-space:normal;max-width:90vw;}
             .tutorial-btn {font-size:1.1em;margin-left:10px;}
+            /* 80px thumb overhangs the track by 40px at min/max value —
+               container padding needs to be at least that wide or the
+               overhang gets clipped by body's overflow-x:hidden */
+            .container {padding-left:40px;padding-right:40px;}
         }
  .sensitivity-row {
   display: flex;
@@ -240,7 +269,7 @@ input[type=number] {
 /* PGF full-width fix */
 .pgf-block {
   width: 100%;
-  max-width: 760px;   /* matches other slider containers */
+  max-width: 600px;   /* matches sensitivity-slider's cap */
   margin: 0 auto 24px;
   box-sizing: border-box;
 }
@@ -405,8 +434,8 @@ input[type=number] {
 }
 @supports (-webkit-touch-callout: none) {
   .container {
-    padding-left: 18px;
-    padding-right: 18px;
+    padding-left: 40px;
+    padding-right: 40px;
   }
   
 @media (max-width: 600px) {
@@ -488,11 +517,12 @@ input[type=number] {
     <!-- ================= MAIN APP UI ================= -->
   <div class="container">
     <h1>InhaleToEat 🥩💨</h1>
-    <p class="subtitle">Afrezza dosing • Sep 01 2026</p>
+    <p class="subtitle">Afrezza dosing • Apr 10 2026</p>
 
     <div class="profile-bar">
         <select id="profileSelect"></select>
         <button class="tutorial-btn" id="manageProfilesBtn" style="margin:0;">👤 Manage profiles</button>
+        <button class="tutorial-btn" id="openMealLogBtn" style="margin:0;">📋 Meal Log</button>
     </div>
 
     <div class="welcome">
@@ -515,7 +545,7 @@ input[type=number] {
             </p>
             <div class="sensitivity-row">
                 <span class="sens-icon left" title="More sensitive">💪</span>
-                <input type="range" min="-40" max="60" step="5" value="0" class="slider sensitivity-slider" id="sensitivityAdjust">
+                <input type="range" min="-40" max="60" step="10" value="0" class="slider sensitivity-slider" id="sensitivityAdjust">
                 <span class="sens-icon right" title="More resistant">🤒</span>
             </div>
             <div class="slider-value" id="sensVal">No adjustment</div>
@@ -526,7 +556,7 @@ input[type=number] {
             <span class="tooltip" data-tip="0.60 default. Low-carb often 0.6–0.8">ℹ️</span>
         </p>
         <div class="pgf-block">
-            <input type="range" min="0" max="100" value="60" class="slider" id="proteinFactor">
+            <input type="range" min="0" max="100" step="5" value="60" class="slider" id="proteinFactor">
             <div class="slider-value" id="pfVal">0.60</div>
         </div>
 
@@ -594,6 +624,10 @@ input[type=number] {
         <div id="result">NOW: 8 u</div>
         <div id="delayed">(no follow-up)</div>
         <div id="delayed2" style="font-size:2em;color:#ffd93d;text-align:center;margin:10px 0;display:none;"></div>
+
+        <div class="row" style="justify-content:center; margin-top:10px;">
+            <button class="tutorial-btn" id="saveMealBtn" style="margin:0;">💾 Save this meal</button>
+        </div>
 
        <div class="kofi">
           <p>
@@ -686,6 +720,17 @@ input[type=number] {
 		</div>
 	</div> <!-- closes #profile-modal -->
 
+	<div id="meallog-modal" class="modal">
+		<div class="modal-content">
+			<span class="close" id="close-meallog-modal">×</span>
+			<h2>Meal Log</h2>
+			<p style="color:#aaa;margin-bottom:10px;">
+      Last 15 saved meals for this profile. Tap a meal's outcome once you know how it went.
+			</p>
+			<div id="mealLogList"></div>
+		</div>
+	</div> <!-- closes #meallog-modal -->
+
   
     <!-- Main App Script -->
 <script>
@@ -694,6 +739,7 @@ input[type=number] {
 const G_PER_OZ = 28.3495;
 const DEFAULT_FOOD_PRESETS = { S: 100, M: 200, L: 300 };
 const MAX_PROFILES = 6;
+const MEAL_LOG_CAP = 15;
 const PROFILES_KEY = 'itk_profiles';
 const ACTIVE_PROFILE_KEY = 'itk_activeProfile';
 
@@ -840,6 +886,9 @@ window.onclick = (event) => {
     if (event.target === document.getElementById('profile-modal')) {
         document.getElementById('profile-modal').style.display = 'none';
     }
+    if (event.target === document.getElementById('meallog-modal')) {
+        document.getElementById('meallog-modal').style.display = 'none';
+    }
 };
 
 // --- 4. UI SYNC ---
@@ -904,6 +953,108 @@ document.getElementById('pizzaModeToggle').onclick = function() {
     calc();
 };
 
+// --- 5d. MEAL LOG ---
+// Explicit save only (a "Save this meal" tap) — never auto-logged from
+// calc(), since calc() fires on every slider drag and would flood the
+// log with numbers nobody actually dosed. Plain FIFO at MEAL_LOG_CAP:
+// oldest entry is dropped on overflow regardless of whether it was
+// ever tagged with an outcome.
+function saveMeal() {
+    const { id, profiles } = getActiveProfile();
+    const p = profiles[id];
+    if (!p.mealLog) p.mealLog = [];
+
+    const entry = {
+        timestamp: Date.now(),
+        carbs: parseFloat(inputs.carbs.value) || 0,
+        weightGrams: Math.round(weightInGrams),
+        unit: proteinUnit,
+        proteinSpeed: parseInt(inputs.proteinSpeed.value),
+        fatLoad: parseInt(inputs.fatLoad.value),
+        pizzaMode: pizzaMode,
+        acrUsed: inputs.acr.value,
+        pfUsed: inputs.proteinFactor.value,
+        doseNowText: inputs.result.textContent,
+        doseLaterText: inputs.delayed.textContent,
+        doseLater2Text: (inputs.delayed2.style.display !== 'none') ? inputs.delayed2.textContent : '',
+        outcome: 'pending'
+    };
+
+    p.mealLog.push(entry);
+    if (p.mealLog.length > MEAL_LOG_CAP) {
+        p.mealLog.shift();
+    }
+    saveProfiles(profiles);
+
+    const btn = document.getElementById('saveMealBtn');
+    const original = btn.textContent;
+    btn.textContent = '✅ Saved';
+    setTimeout(() => { btn.textContent = original; }, 1200);
+}
+
+function renderMealLog() {
+    const { id, profiles } = getActiveProfile();
+    const log = profiles[id].mealLog || [];
+    const container = document.getElementById('mealLogList');
+    container.innerHTML = '';
+
+    if (log.length === 0) {
+        container.innerHTML = '<p style="color:#aaa;">No meals saved yet for this profile.</p>';
+        return;
+    }
+
+    [...log].reverse().forEach(entry => {
+        const row = document.createElement('div');
+        row.className = 'profile-row';
+        row.style.flexDirection = 'column';
+        row.style.alignItems = 'stretch';
+        row.style.gap = '8px';
+
+        const d = new Date(entry.timestamp);
+        const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const unitLabel = entry.unit === 'oz' ? 'oz' : 'g';
+        const doses = [entry.doseNowText, entry.doseLaterText !== '(no follow-up)' ? entry.doseLaterText : '', entry.doseLater2Text]
+            .filter(Boolean).join(' · ');
+
+        const summary = document.createElement('div');
+        summary.innerHTML = `<strong>${dateStr}</strong>${entry.pizzaMode ? ' 🍕' : ''}<br>`
+            + `${entry.carbs}g carbs, ${entry.weightGrams}${unitLabel} protein source<br>`
+            + doses;
+        row.appendChild(summary);
+
+        const tagRow = document.createElement('div');
+        tagRow.style.cssText = 'display:flex;gap:8px;';
+        ['Low', 'On target', 'High'].forEach(tag => {
+            const btn = document.createElement('button');
+            btn.textContent = tag;
+            btn.className = 'mode-btn' + (entry.outcome === tag ? ' active' : '');
+            btn.style.cssText = 'flex:1;font-size:1em;padding:8px;margin:0;';
+            btn.onclick = () => {
+                const { profiles: p2 } = getActiveProfile();
+                const match = (p2[id].mealLog || []).find(e => e.timestamp === entry.timestamp);
+                if (match) match.outcome = tag;
+                saveProfiles(p2);
+                renderMealLog();
+            };
+            tagRow.appendChild(btn);
+        });
+        row.appendChild(tagRow);
+
+        container.appendChild(row);
+    });
+}
+
+document.getElementById('saveMealBtn').onclick = saveMeal;
+
+document.getElementById('openMealLogBtn').onclick = () => {
+    renderMealLog();
+    document.getElementById('meallog-modal').style.display = 'flex';
+};
+
+document.getElementById('close-meallog-modal').onclick = () => {
+    document.getElementById('meallog-modal').style.display = 'none';
+};
+
 // --- 5b. PROFILE SWITCHER + MANAGER ---
 function renderProfileSelect() {
     const { id, profiles } = getActiveProfile();
@@ -960,7 +1111,7 @@ function renderProfileList() {
 
         container.appendChild(row);
     });
- 
+
     const atCap = Object.keys(profiles).length >= MAX_PROFILES;
     document.getElementById('profileLimitMsg').style.display = atCap ? 'block' : 'none';
     document.getElementById('addProfileBtn').disabled = atCap;
