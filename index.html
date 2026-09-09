@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.0.10 (Sep 2026) 
+  Version: 1.0.11 (Sep 2026) 
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.0.10"
+  version: "1.0.11"
 };
 </script>
  
@@ -461,6 +461,30 @@ input[type=number] {
   background: #ff6b6b;
   border-color: #ff6b6b;
 }
+/* --- Printable meal report --- */
+.print-only { display: none; }
+@media print {
+  body * { visibility: hidden; }
+  #printReport, #printReport * { visibility: visible; }
+  #printReport {
+    display: block;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    background: #fff;
+    color: #000;
+    padding: 20px;
+  }
+  #printReport h2 { margin-bottom: 4px; }
+  #printReport .report-meta { color: #444; font-size: 0.9em; margin-bottom: 16px; }
+  #printReport table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+  #printReport th, #printReport td {
+    border: 1px solid #999;
+    padding: 6px 8px;
+    text-align: left;
+  }
+  #printReport th { background: #eee; }
+}
 @supports (-webkit-touch-callout: none) {
   .container {
     padding-left: 40px;
@@ -753,6 +777,7 @@ input[type=number] {
 		<div class="modal-content">
 			<span class="close" id="close-meallog-modal">×</span>
 			<h2>Meal Log</h2>
+			<button class="tutorial-btn" id="printReportBtn" style="margin-bottom:10px;">🖨️ Print / export report</button>
 			<p style="color:#aaa;margin-bottom:10px;">
       Last 15 saved meals for this profile. Tap a meal's outcome once you know how it went.
 			</p>
@@ -1082,6 +1107,61 @@ document.getElementById('openMealLogBtn').onclick = () => {
 
 document.getElementById('close-meallog-modal').onclick = () => {
     document.getElementById('meallog-modal').style.display = 'none';
+};
+
+// --- 5e. PRINTABLE REPORT ---
+// Chronological (oldest first) rather than the modal's newest-first
+// view, since a provider reviewing a trend reads it forward in time.
+// Purely a data dump — no suggestions, no flags, no interpretation.
+// Decision-making stays with the person and their provider.
+function generateReport() {
+    const { id, profiles } = getActiveProfile();
+    const profile = profiles[id];
+    const log = profile.mealLog || [];
+    const container = document.getElementById('printReport');
+
+    const now = new Date();
+    const generatedStr = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (log.length === 0) {
+        container.innerHTML = `<h2>InhaleToEat — Meal Report</h2>
+            <p class="report-meta">Profile: ${profile.name} &nbsp;|&nbsp; Generated: ${generatedStr}</p>
+            <p>No meals logged yet for this profile.</p>`;
+        return;
+    }
+
+    const rows = [...log].map(entry => {
+        const d = new Date(entry.timestamp);
+        const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const unitLabel = entry.unit === 'oz' ? 'oz' : 'g';
+        const doses = [entry.doseNowText, entry.doseLaterText !== '(no follow-up)' ? entry.doseLaterText : '', entry.doseLater2Text]
+            .filter(Boolean).join(' / ');
+        return `<tr>
+            <td>${dateStr}</td>
+            <td>${entry.carbs} g</td>
+            <td>${entry.weightGrams} ${unitLabel}</td>
+            <td>${entry.pizzaMode ? '🍕 Yes' : 'No'}</td>
+            <td>${entry.acrUsed}</td>
+            <td>${entry.pfUsed}%</td>
+            <td>${doses}</td>
+            <td>${entry.outcome === 'pending' ? '—' : entry.outcome}</td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `<h2>InhaleToEat — Meal Report</h2>
+        <p class="report-meta">Profile: ${profile.name} &nbsp;|&nbsp; ${log.length} meal${log.length === 1 ? '' : 's'} &nbsp;|&nbsp; Generated: ${generatedStr}</p>
+        <table>
+            <thead><tr>
+                <th>Date/Time</th><th>Carbs</th><th>Protein source</th><th>Pizza Mode</th>
+                <th>ACR used</th><th>PF used</th><th>Dose(s)</th><th>Outcome</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+
+document.getElementById('printReportBtn').onclick = () => {
+    generateReport();
+    window.print();
 };
 
 // --- 5b. PROFILE SWITCHER + MANAGER ---
@@ -1427,6 +1507,8 @@ if (window.matchMedia('(display-mode: standalone)').matches
   
 </div>
 
+
+<div id="printReport" class="print-only"></div>
 
 </body>
 </html>
