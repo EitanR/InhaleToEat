@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inhale-to-eat-v1.0.9';
+const CACHE_NAME = 'inhale-to-eat-v1.0.11';
 
 const ASSETS = [
   './',
@@ -8,7 +8,7 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png'
 ];
- 
+
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
