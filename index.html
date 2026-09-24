@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.0.11 (Sep 2026) 
+  Version: 1.2.0 (Sep 2026) 
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,13 +30,13 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.0.11"
+  version: "1.2.0"
 };
 </script>
  
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./icon-192.png">
-<meta name="theme-color" content="#1a1a2e">
+<meta name="theme-color" content="#10161F">
 
  <script>
 if ('serviceWorker' in navigator) {
@@ -88,15 +88,34 @@ if ('serviceWorker' in navigator) {
     <!-- Inline Manifest -->
     
  <style>
-        body {font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;margin:0;padding:20px;box-sizing:border-box;}
+        :root {
+          --bg: #10161F;          /* deep ink, blue-black */
+          --panel: #1B2430;       /* card/panel surface */
+          --panel-deep: #0B0F15;  /* popovers, tooltips, input fields */
+          --track: #2A3441;       /* slider tracks, idle buttons */
+          --track-border: #3A4656;
+          --warn: #E8607A;        /* safety notes, destructive actions */
+          --ink: #EDEFF2;         /* primary text, and the neutral UI accent */
+          --muted: #8B96A5;       /* secondary text */
+          --on-now: #1B1206;      /* dark text on a light/warm accent, for contrast */
+          /* Real Afrezza cartridge colors — reserved exclusively for actual
+             dose chips. Nothing else in the UI may use these three hues,
+             so a chip is always unambiguously "this is a dose," never
+             confusable with a button or a tooltip. */
+          --u4: #4C8DFF;
+          --u8: #3DAA5C;
+          --u12: #F2C230;
+          --font-num: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", "Consolas", monospace;
+        }
+        body {font-family:system-ui,sans-serif;background:var(--bg);color:var(--ink);margin:0;padding:20px;box-sizing:border-box;}
         h1 {font-size:2.5em;margin:20px 0 10px;text-align:center;}
 
 body {
   overflow-x: hidden;
 }
 
-        .subtitle {text-align:center;margin:0 0 20px;color:#ffd93d;font-size:1.2em;}
-        .welcome {background:#222;padding:15px;border-radius:12px;margin:20px 0;font-size:1.1em;text-align:left;max-width:800px;margin-left:auto;margin-right:auto;}
+        .subtitle {text-align:center;margin:0 0 20px;color:var(--muted);font-size:1.2em;}
+        .welcome {background:var(--panel);padding:15px;border-radius:12px;margin:20px 0;font-size:1.1em;text-align:left;max-width:800px;margin-left:auto;margin-right:auto;}
 .container {
   width: 100%;
   max-width: 800px;
@@ -110,7 +129,7 @@ body {
   box-sizing: border-box;
 }
         .settings {
-  background: #222;
+  background: var(--panel);
   padding: 15px;
   border-radius: 12px;
   margin-bottom: 20px;
@@ -128,12 +147,12 @@ body {
         .row.full {justify-content: stretch;}
 
         .label {font-size:1.4em;white-space:nowrap;}
-        input[type=number] {font-size:1.4em;padding:10px;width:120px;border-radius:8px;border:none;text-align:center;}
+        input[type=number] {font-size:1.4em;padding:10px;width:120px;border-radius:8px;border:2px solid var(--track-border);background:var(--panel-deep);color:var(--ink);text-align:center;font-family:var(--font-num);font-variant-numeric:tabular-nums;}
         .big-input {width:100%;max-width:400px;}
-        .mode-btn {font-size:1.2em;padding:10px 16px;background:#333;color:#eee;border:2px solid #555;border-radius:12px;cursor:pointer;flex:1;margin:5px;}
-        .mode-btn.active {background:#ff6b6b;color:white;border-color:#ff6b6b;}
+        .mode-btn {font-size:1.2em;padding:10px 16px;background:var(--track);color:var(--ink);border:2px solid var(--track-border);border-radius:12px;cursor:pointer;flex:1;margin:5px;}
+        .mode-btn.active {background:var(--ink);color:var(--on-now);border-color:var(--ink);}
         .mode-btn:active {transform:scale(0.98);}
-        .mode-desc {font-size:0.9em;color:#aaa;margin-top:5px;text-align:center;}
+        .mode-desc {font-size:0.9em;color:var(--muted);margin-top:5px;text-align:center;}
         .slider-label {font-size:1.6em;margin:20px 0 10px;text-align:center;}
 		.slider-container {
 			width: 100%;
@@ -155,7 +174,7 @@ body {
   min-width: 0;        /* 🔑 REQUIRED for mobile flex */
 
   height: 50px;
-  background: #333;
+  background: var(--track);
   border-radius: 25px;
   outline: none;
 
@@ -175,7 +194,8 @@ body {
 .slider-value {
   min-width: 2.5em;
   text-align: right;
-  color: #ffd966;
+  color: var(--ink);
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
 }
 
@@ -185,7 +205,7 @@ body {
 			-webkit-appearance: none;
 			width: 76px;
 			height: 76px;
-			background: #ff6b6b;
+			background: var(--ink);
 			border-radius: 50%;
 			cursor: pointer;
 		}
@@ -196,25 +216,25 @@ body {
   min-width: 0; /* critical */
 }
 
-        .slider-value {font-size:2em;margin-left:10px;color:#ffd93d;}
-        #proteinCalc {font-size:1.6em;margin:20px;padding:15px;background:#222;border-radius:12px;}
-        #result {font-size:5em;margin:40px 0;color:#a8e6cf;text-align:center;}
-        #delayed {font-size:2.8em;color:#ffd93d;text-align:center;margin:20px 0;}
-        .disclaimer {font-size:0.9em;color:#ff9d9d;margin:20px;padding:10px;background:#333;border-radius:8px;}
-        .new-feature {color:#a8e6cf;font-size:0.9em;margin-top:8px;text-align:center;}
-        .tutorial-btn {font-size:1.2em;padding:8px 12px;background:#333;color:#ffd93d;border:2px solid #555;border-radius:12px;cursor:pointer;margin-left:15px;}
+        .slider-value {font-size:2em;margin-left:10px;color:var(--ink);font-family:var(--font-num);font-variant-numeric:tabular-nums;}
+        #proteinCalc {font-size:1.6em;margin:20px;padding:15px;background:var(--panel);border-radius:12px;font-family:var(--font-num);font-variant-numeric:tabular-nums;}
+        #result {font-size:5em;margin:40px 0;color:var(--ink);text-align:center;font-family:var(--font-num);font-variant-numeric:tabular-nums;}
+        #delayed {font-size:2.8em;color:var(--muted);text-align:center;margin:20px 0;font-family:var(--font-num);font-variant-numeric:tabular-nums;}
+        .disclaimer {font-size:0.9em;color:var(--warn);margin:20px;padding:10px;background:var(--panel);border-radius:8px;}
+        .new-feature {color:var(--muted);font-size:0.9em;margin-top:8px;text-align:center;}
+        .tutorial-btn {font-size:1.2em;padding:8px 12px;background:var(--track);color:var(--ink);border:2px solid var(--track-border);border-radius:12px;cursor:pointer;margin-left:15px;}
         .tutorial-btn:active {transform:scale(0.98);}
         .kofi {text-align:center;margin:40px 0 20px;}
         .kofi p {font-size:1.1em;margin-bottom:15px;}
-        .tooltip {position:relative;cursor:help;color:#ffd93d;text-decoration:underline dotted;}
-        .tooltip::after {content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 12px;border-radius:8px;font-size:0.9em;white-space:nowrap;opacity:0;visibility:hidden;transition:opacity 0.2s,visibility 0.2s;z-index:10;pointer-events:none;margin-bottom:8px;}
+        .tooltip {position:relative;cursor:help;color:var(--ink);text-decoration:underline dotted;}
+        .tooltip::after {content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--panel-deep);color:var(--ink);padding:8px 12px;border-radius:8px;font-size:0.9em;white-space:nowrap;opacity:0;visibility:hidden;transition:opacity 0.2s,visibility 0.2s;z-index:10;pointer-events:none;margin-bottom:8px;}
         .tooltip:hover::after,.tooltip:active::after {opacity:1;visibility:visible;}
         .modal {display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
-        .modal-content {background:#222;padding:20px;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;position:relative;}
-        .close {position:absolute;top:10px;right:15px;font-size:2em;color:#aaa;cursor:pointer;}
-        .close:hover {color:#fff;}
+        .modal-content {background:var(--panel);padding:20px;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;position:relative;}
+        .close {position:absolute;top:10px;right:15px;font-size:2em;color:var(--muted);cursor:pointer;}
+        .close:hover {color:var(--ink);}
         .tutorial-text {line-height:1.6;font-size:1.1em;}
-        .tutorial-text strong {color:#ffd93d;}
+        .tutorial-text strong {color:var(--ink);}
         @media (max-width:600px) {
             .mode-btn {font-size:1.1em;padding:12px;}
             .slider {height:60px;}
@@ -277,11 +297,11 @@ body {
 }
 
 .sens-icon.left {
-  color: #a8e6cf;
+  color: var(--muted);
 }
 
 .sens-icon.right {
-  color: #ff9d9d;
+  color: var(--muted);
 }
 
 /* Remove arrows/spinners from all number inputs */
@@ -311,7 +331,9 @@ input[type=number] {
   margin-top: 8px;
   text-align: center;
   font-size: 2em;
-  color: #ffd93d;
+  color: var(--ink);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
 }
 
 
@@ -374,8 +396,8 @@ input[type=number] {
   bottom:15px;
   left:50%;
   transform:translateX(-50%);
-  background:#ff6b6b;
-  color:white;
+  background:var(--ink);
+  color:var(--on-now);
   padding:12px 18px;
   border-radius:14px;
   font-size:1.1em;
@@ -386,8 +408,8 @@ input[type=number] {
   display:block;
 }
 .install-banner button {
-  background:#222;
-  color:white;
+  background:var(--panel-deep);
+  color:var(--ink);
   border:none;
   padding:8px 14px;
   border-radius:10px;
@@ -398,7 +420,7 @@ input[type=number] {
   text-align: center;
   margin: 40px auto 20px;
   padding: 18px 20px;
-  background: #2a2a3d;
+  background: var(--panel);
   border-radius: 14px;
   max-width: 520px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
@@ -406,13 +428,43 @@ input[type=number] {
 
 .kofi p {
   font-size: 1.1em;
-  color: #f1f1f1;
+  color: var(--ink);
   line-height: 1.5;
   margin-bottom: 14px;
 }
 
 .kofi strong {
-  color: #ffd93d;
+  color: var(--ink);
+}
+
+.cart-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 16px; /* reset — parent dose text is 2.8–5em, chips shouldn't inherit that */
+}
+.cart-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5em;
+  height: 2.5em;
+  border-radius: 50%;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1em;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.cart-chip-count {
+  font-size: 1.3em;
+  color: var(--ink);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
 }
 
 .kofi img {
@@ -433,9 +485,9 @@ input[type=number] {
   font-size: 1.1em;
   padding: 10px 14px;
   border-radius: 10px;
-  background: #333;
-  color: #eee;
-  border: 2px solid #555;
+  background: var(--track);
+  color: var(--ink);
+  border: 2px solid var(--track-border);
   max-width: 60vw;
 }
 .profile-row {
@@ -443,7 +495,7 @@ input[type=number] {
   align-items: center;
   gap: 10px;
   padding: 10px 0;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--track-border);
 }
 .profile-row span.name {
   flex: 1;
@@ -458,8 +510,8 @@ input[type=number] {
   border: none;
 }
 .profile-delete-btn {
-  background: #ff6b6b;
-  border-color: #ff6b6b;
+  background: var(--warn);
+  border-color: var(--warn);
 }
 /* --- Printable meal report --- */
 .print-only { display: none; }
@@ -674,9 +726,18 @@ input[type=number] {
         </div>
 
         <div id="proteinCalc">≈ 63 g protein (+ 38 g equiv.) + 0 g real carbs</div>
-        <div id="result">NOW: 8 u</div>
-        <div id="delayed">(no follow-up)</div>
-        <div id="delayed2" style="font-size:2em;color:#ffd93d;text-align:center;margin:10px 0;display:none;"></div>
+        <div id="result">
+            <span id="resultText"></span>
+            <div class="cart-row" id="resultCarts"></div>
+        </div>
+        <div id="delayed">
+            <span id="delayedText"></span>
+            <div class="cart-row" id="delayedCarts"></div>
+        </div>
+        <div id="delayed2" style="font-size:2em;color:var(--ink);text-align:center;margin:10px 0;display:none;font-family:var(--font-num);">
+            <span id="delayed2Text"></span>
+            <div class="cart-row" id="delayed2Carts"></div>
+        </div>
 
         <div class="row" style="justify-content:center; margin-top:10px;">
             <button class="tutorial-btn" id="saveMealBtn" style="margin:0;">💾 Save this meal</button>
@@ -736,7 +797,7 @@ input[type=number] {
 			<span class="close" id="close-preset">×</span>
 
 			<h2>Protein portion presets</h2>
-			<p style="color:#aaa;margin-bottom:10px;">
+			<p style="color:var(--muted);margin-bottom:10px;">
       Adjust portion sizes used by Small / Medium / Large buttons.
 			</p>
 
@@ -761,7 +822,7 @@ input[type=number] {
 		<div class="modal-content">
 			<span class="close" id="close-profile-modal">×</span>
 			<h2>Manage profiles</h2>
-			<p style="color:#aaa;margin-bottom:10px;">
+			<p style="color:var(--muted);margin-bottom:10px;">
       Each profile keeps its own ACR, protein factor, portion presets, unit, and digestion mode. Up to 6 profiles per device.
 			</p>
 			<div id="profileList"></div>
@@ -769,7 +830,7 @@ input[type=number] {
 				<input type="text" id="newProfileName" placeholder="New profile name" style="flex:1;font-size:1.2em;padding:10px;border-radius:8px;border:none;">
 				<button id="addProfileBtn" class="mode-btn" style="flex:0;">Add</button>
 			</div>
-			<p id="profileLimitMsg" style="color:#ff9d9d;display:none;margin-top:10px;">Maximum of 6 profiles reached on this device. Delete one to add another.</p>
+			<p id="profileLimitMsg" style="color:var(--warn);display:none;margin-top:10px;">Maximum of 6 profiles reached on this device. Delete one to add another.</p>
 		</div>
 	</div> <!-- closes #profile-modal -->
 
@@ -778,7 +839,7 @@ input[type=number] {
 			<span class="close" id="close-meallog-modal">×</span>
 			<h2>Meal Log</h2>
 			<button class="tutorial-btn" id="printReportBtn" style="margin-bottom:10px;">🖨️ Print / export report</button>
-			<p style="color:#aaa;margin-bottom:10px;">
+			<p style="color:var(--muted);margin-bottom:10px;">
       Last 15 saved meals for this profile. Tap a meal's outcome once you know how it went.
 			</p>
 			<div id="mealLogList"></div>
@@ -888,8 +949,14 @@ const inputs = {
     fatLoad: document.getElementById('fatLoad'),
     sensitivityAdjust: document.getElementById('sensitivityAdjust'),
     result: document.getElementById('result'),
+    resultText: document.getElementById('resultText'),
+    resultCarts: document.getElementById('resultCarts'),
     delayed: document.getElementById('delayed'),
+    delayedText: document.getElementById('delayedText'),
+    delayedCarts: document.getElementById('delayedCarts'),
     delayed2: document.getElementById('delayed2'),
+    delayed2Text: document.getElementById('delayed2Text'),
+    delayed2Carts: document.getElementById('delayed2Carts'),
     proteinCalc: document.getElementById('proteinCalc'),
     pVal: document.getElementById('pVal'),
     fVal: document.getElementById('fVal'),
@@ -1028,9 +1095,9 @@ function saveMeal() {
         pizzaMode: pizzaMode,
         acrUsed: inputs.acr.value,
         pfUsed: inputs.proteinFactor.value,
-        doseNowText: inputs.result.textContent,
-        doseLaterText: inputs.delayed.textContent,
-        doseLater2Text: (inputs.delayed2.style.display !== 'none') ? inputs.delayed2.textContent : '',
+        doseNowText: inputs.resultText.textContent,
+        doseLaterText: inputs.delayedText.textContent,
+        doseLater2Text: (inputs.delayed2.style.display !== 'none') ? inputs.delayed2Text.textContent : '',
         outcome: 'pending'
     };
 
@@ -1053,7 +1120,7 @@ function renderMealLog() {
     container.innerHTML = '';
 
     if (log.length === 0) {
-        container.innerHTML = '<p style="color:#aaa;">No meals saved yet for this profile.</p>';
+        container.innerHTML = '<p style="color:var(--muted);">No meals saved yet for this profile.</p>';
         return;
     }
 
@@ -1263,7 +1330,7 @@ function confirmDelete(pid, row) {
     row.innerHTML = '';
     const msg = document.createElement('span');
     msg.className = 'name';
-    msg.style.color = '#ff9d9d';
+    msg.style.color = 'var(--warn)';
     msg.textContent = `Delete "${profiles[pid].name}"? This can't be undone.`;
     row.appendChild(msg);
 
@@ -1321,6 +1388,47 @@ document.getElementById('addProfileBtn').onclick = () => {
     renderProfileList();
     renderProfileSelect();
 };
+
+// --- 5f. CARTRIDGE RESOLVER ---
+// Afrezza cartridges really do come in exactly 4/8/12-unit sizes,
+// color-coded blue/green/yellow. Since every dose here is already a
+// multiple of 4, and 12 is itself a multiple of 4, stripping out as
+// many 12s as possible always leaves a remainder of 0, 4, or 8 —
+// never anything else — so this greedy split is always valid and
+// always minimal. No combinatorial search needed.
+const CART_COLORS = { 4: 'var(--u4)', 8: 'var(--u8)', 12: 'var(--u12)' };
+const CART_TEXT = { 4: '#fff', 8: '#fff', 12: 'var(--on-now)' };
+const CART_DISPLAY_CAP = 6; // beyond this many of one size, collapse to "chip ×N"
+
+function resolveCartridges(units) {
+    units = Math.max(0, Math.round(units));
+    if (units === 0) return [];
+    const n12 = Math.floor(units / 12);
+    const rem = units - n12 * 12; // guaranteed 0, 4, or 8
+    const combo = [];
+    if (n12 > 0) combo.push({ size: 12, count: n12 });
+    if (rem === 8) combo.push({ size: 8, count: 1 });
+    if (rem === 4) combo.push({ size: 4, count: 1 });
+    return combo;
+}
+
+function renderCartridgeChips(units) {
+    const combo = resolveCartridges(units);
+    if (combo.length === 0) return '';
+    let html = '';
+    combo.forEach(({ size, count }) => {
+        const bg = CART_COLORS[size];
+        const fg = CART_TEXT[size];
+        if (count <= CART_DISPLAY_CAP) {
+            for (let i = 0; i < count; i++) {
+                html += `<span class="cart-chip" style="background:${bg};color:${fg};">${size}</span>`;
+            }
+        } else {
+            html += `<span class="cart-chip" style="background:${bg};color:${fg};">${size}</span><span class="cart-chip-count">×${count}</span>`;
+        }
+    });
+    return html;
+}
 
 // --- 6. THE SACRED ALGORITHM (Your Logic — untouched) ---
 function calc() {
@@ -1398,7 +1506,8 @@ function calc() {
 
     let baseDelayMin = (parseInt(inputs.proteinSpeed.value) * settings.speedMult) + (parseInt(inputs.fatLoad.value) * settings.fatMult);
 
-    inputs.result.textContent = `NOW: ${pre} u`;
+    inputs.resultText.textContent = `NOW: ${pre} u`;
+    inputs.resultCarts.innerHTML = renderCartridgeChips(pre);
 
     const fmtDelay = (mins) => {
         let h = Math.floor(mins / 60);
@@ -1408,8 +1517,10 @@ function calc() {
 
     if (!pizzaMode) {
         // Original single-checkpoint behavior, byte-for-byte the same math as before.
-        inputs.delayed.textContent = laterTotal > 0 ? `Then ${laterTotal} u in ${fmtDelay(baseDelayMin)}` : '(no follow-up)';
+        inputs.delayedText.textContent = laterTotal > 0 ? `Then ${laterTotal} u in ${fmtDelay(baseDelayMin)}` : '(no follow-up)';
+        inputs.delayedCarts.innerHTML = renderCartridgeChips(laterTotal);
         inputs.delayed2.style.display = 'none';
+        inputs.delayed2Carts.innerHTML = '';
     } else {
         // Pizza Mode: spread the later amount across two checkpoints instead
         // of one, and push the window out further, since high-fat/high-carb
@@ -1420,8 +1531,10 @@ function calc() {
         let later1 = Math.round((laterTotal * 0.55) / 4) * 4;
         let later2 = Math.max(0, laterTotal - later1);
 
-        inputs.delayed.textContent = later1 > 0 ? `Then ${later1} u in ${fmtDelay(stage1Min)}` : '(no follow-up)';
-        inputs.delayed2.textContent = later2 > 0 ? `Then ${later2} u more in ${fmtDelay(stage2Min)}` : '';
+        inputs.delayedText.textContent = later1 > 0 ? `Then ${later1} u in ${fmtDelay(stage1Min)}` : '(no follow-up)';
+        inputs.delayedCarts.innerHTML = renderCartridgeChips(later1);
+        inputs.delayed2Text.textContent = later2 > 0 ? `Then ${later2} u more in ${fmtDelay(stage2Min)}` : '';
+        inputs.delayed2Carts.innerHTML = renderCartridgeChips(later2);
         inputs.delayed2.style.display = later2 > 0 ? 'block' : 'none';
     }
     
