@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.2.0 (Sep 2026) 
+  Version: 1.3.0 (Sep 2026)
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.2.0"
+  version: "1.3.0"
 };
 </script>
  
@@ -643,6 +643,11 @@ input[type=number] {
             <button class="tutorial-btn" id="open-tutorial">How to find your numbers?</button>
         </div>
 
+        <div class="row">
+            <span class="label">Basal dose <span class="tooltip" data-tip="Your current daily basal/long-acting insulin dose, for your own records. Not used in any calculation here — update it whenever your regimen changes.">ℹ️</span>:</span>
+            <input type="number" step="0.5" min="0" id="basalDose" value="" placeholder="optional">
+        </div>
+
         <div class="row" style="flex-direction:column; width: 100%;">
             <p class="slider-label">
                 Today’s Adjustment
@@ -885,6 +890,7 @@ function loadProfiles() {
                 name: 'Default',
                 acr: legacyACR,
                 pf: legacyPF,
+                basalDose: '',
                 unit: legacyUnit,
                 mode: legacyMode,
                 weightGrams: legacyWeight,
@@ -930,6 +936,7 @@ function loadSavedSettings() {
 
     document.getElementById('acr').value = p.acr;
     document.getElementById('proteinFactor').value = p.pf;
+    document.getElementById('basalDose').value = p.basalDose || '';
 
     proteinUnit = p.unit;
     currentMode = p.mode;
@@ -1095,6 +1102,8 @@ function saveMeal() {
         pizzaMode: pizzaMode,
         acrUsed: inputs.acr.value,
         pfUsed: inputs.proteinFactor.value,
+        basalUsed: p.basalDose || '',
+        resistanceUsed: inputs.sensitivityAdjust.value,
         doseNowText: inputs.resultText.textContent,
         doseLaterText: inputs.delayedText.textContent,
         doseLater2Text: (inputs.delayed2.style.display !== 'none') ? inputs.delayed2Text.textContent : '',
@@ -1203,6 +1212,9 @@ function generateReport() {
         const unitLabel = entry.unit === 'oz' ? 'oz' : 'g';
         const doses = [entry.doseNowText, entry.doseLaterText !== '(no follow-up)' ? entry.doseLaterText : '', entry.doseLater2Text]
             .filter(Boolean).join(' / ');
+        const basalStr = (entry.basalUsed !== undefined && entry.basalUsed !== '') ? `${entry.basalUsed} u` : '—';
+        const resistanceRaw = parseInt(entry.resistanceUsed || 0);
+        const resistanceStr = resistanceRaw === 0 ? 'No adjustment' : (resistanceRaw > 0 ? `+${resistanceRaw}%` : `${resistanceRaw}%`);
         return `<tr>
             <td>${dateStr}</td>
             <td>${entry.carbs} g</td>
@@ -1210,6 +1222,8 @@ function generateReport() {
             <td>${entry.pizzaMode ? '🍕 Yes' : 'No'}</td>
             <td>${entry.acrUsed}</td>
             <td>${entry.pfUsed}%</td>
+            <td>${basalStr}</td>
+            <td>${resistanceStr}</td>
             <td>${doses}</td>
             <td>${entry.outcome === 'pending' ? '—' : entry.outcome}</td>
         </tr>`;
@@ -1220,7 +1234,7 @@ function generateReport() {
         <table>
             <thead><tr>
                 <th>Date/Time</th><th>Carbs</th><th>Protein source</th><th>Pizza Mode</th>
-                <th>ACR used</th><th>PF used</th><th>Dose(s)</th><th>Outcome</th>
+                <th>ACR used</th><th>PF used</th><th>Basal</th><th>Resistance</th><th>Dose(s)</th><th>Outcome</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table>`;
@@ -1374,6 +1388,7 @@ document.getElementById('addProfileBtn').onclick = () => {
         name,
         acr: '35',
         pf: '60',
+        basalDose: '',
         unit: 'g',
         mode: 'average',
         weightGrams: 300,
@@ -1543,6 +1558,13 @@ function calc() {
     inputs.pfVal.textContent = protein_factor.toFixed(2);
     inputs.sensVal.textContent = adj === 1 ? 'No adjustment' : (adj > 1 ? `+${inputs.sensitivityAdjust.value}%` : `${inputs.sensitivityAdjust.value}%`);
 }
+
+// Basal dose is purely informational — never read by calc() — so it
+// gets its own listener rather than joining the array below, which
+// triggers a recalculation on every keystroke.
+document.getElementById('basalDose').addEventListener('input', function() {
+    updateActiveProfile({ basalDose: this.value });
+});
 
 // --- 7. STARTUP SEQUENCE ---
 [inputs.acr, inputs.carbs, inputs.proteinFactor, inputs.proteinSpeed, inputs.fatLoad, inputs.sensitivityAdjust].forEach(el => {
