@@ -4,6 +4,20 @@
 
 ---
 
+## 🔗 Try It
+
+**Live app:** [eitanr.github.io/InhaleToEat](https://eitanr.github.io/InhaleToEat)
+
+Open that link in any browser — it works immediately, no install required. To keep it handy as its own app window:
+
+* **iPhone:** Share → Add to Home Screen
+* **Android:** Menu (⋮) → Install app
+* **Desktop (Chrome/Edge):** click the install icon in the address bar, or Menu → Install InhaleToEat
+
+Installed or not, it works fully offline after the first load and updates itself automatically in the background.
+
+---
+
 ## 🎯 The Philosophy: Training, Not Tracking
 
 Unlike traditional insulin pumps or rigid carb-ratio apps that demand exact gram-counting and precise input, **InhaleToEat** is designed around a simple goal: **to eventually make itself unnecessary.**
