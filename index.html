@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.3.0 (Sep 2026)
+  Version: 1.4.0 (Sep 2026)
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.3.0"
+  version: "1.4.0"
 };
 </script>
  
@@ -529,13 +529,30 @@ input[type=number] {
   }
   #printReport h2 { margin-bottom: 4px; }
   #printReport .report-meta { color: #444; font-size: 0.9em; margin-bottom: 16px; }
-  #printReport table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+  #printReport .report-flag { color: #900; font-size: 0.85em; margin: -10px 0 16px; }
+  /* table-layout: fixed + explicit per-column widths + break-word keep the
+     table from stretching past the printable page width when a cell (e.g.
+     a two-checkpoint dose string) is long — without this, the last column
+     silently gets clipped off the page. */
+  #printReport table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.78em; }
   #printReport th, #printReport td {
     border: 1px solid #999;
-    padding: 6px 8px;
+    padding: 5px 6px;
     text-align: left;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
   #printReport th { background: #eee; }
+  #printReport col.col-datetime { width: 11%; }
+  #printReport col.col-carbs { width: 6%; }
+  #printReport col.col-protein { width: 8%; }
+  #printReport col.col-pizza { width: 6%; }
+  #printReport col.col-acr { width: 6%; }
+  #printReport col.col-pf { width: 6%; }
+  #printReport col.col-basal { width: 6%; }
+  #printReport col.col-resistance { width: 8%; }
+  #printReport col.col-dose { width: 27%; }
+  #printReport col.col-outcome { width: 9%; }
 }
 @supports (-webkit-touch-callout: none) {
   .container {
@@ -646,6 +663,13 @@ input[type=number] {
         <div class="row">
             <span class="label">Basal dose <span class="tooltip" data-tip="Your current daily basal/long-acting insulin dose, for your own records. Not used in any calculation here — update it whenever your regimen changes.">ℹ️</span>:</span>
             <input type="number" step="0.5" min="0" id="basalDose" value="" placeholder="optional">
+        </div>
+
+        <div class="row">
+            <span class="label">Target range <span class="tooltip" data-tip="Your postprandial target range, for your own and your provider's reference on the printed report. Not used in any calculation or outcome tagging here — update whenever your target changes.">ℹ️</span>:</span>
+            <input type="number" step="1" min="0" id="targetLow" value="" placeholder="low" style="max-width:80px;">
+            <span class="label" style="flex:0;">–</span>
+            <input type="number" step="1" min="0" id="targetHigh" value="" placeholder="high" style="max-width:80px;">
         </div>
 
         <div class="row" style="flex-direction:column; width: 100%;">
@@ -891,6 +915,9 @@ function loadProfiles() {
                 acr: legacyACR,
                 pf: legacyPF,
                 basalDose: '',
+                targetLow: '',
+                targetHigh: '',
+                targetRangeUpdatedAt: null,
                 unit: legacyUnit,
                 mode: legacyMode,
                 weightGrams: legacyWeight,
@@ -937,6 +964,8 @@ function loadSavedSettings() {
     document.getElementById('acr').value = p.acr;
     document.getElementById('proteinFactor').value = p.pf;
     document.getElementById('basalDose').value = p.basalDose || '';
+    document.getElementById('targetLow').value = p.targetLow || '';
+    document.getElementById('targetHigh').value = p.targetHigh || '';
 
     proteinUnit = p.unit;
     currentMode = p.mode;
@@ -1170,8 +1199,52 @@ function renderMealLog() {
         });
         row.appendChild(tagRow);
 
+        const actionRow = document.createElement('div');
+        actionRow.style.cssText = 'display:flex;justify-content:flex-end;';
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '🗑 Delete';
+        delBtn.className = 'tutorial-btn';
+        delBtn.style.margin = '0';
+        delBtn.onclick = () => confirmDeleteMeal(entry, row, id);
+        actionRow.appendChild(delBtn);
+        row.appendChild(actionRow);
+
         container.appendChild(row);
     });
+}
+
+// Same inline confirm-step pattern as profile deletion: a duplicate or
+// accidental entry (e.g. a meal logged twice by mistake) shouldn't have
+// to wait 15 saves to age out of the FIFO log.
+function confirmDeleteMeal(entry, row, profileId) {
+    row.innerHTML = '';
+    row.style.flexDirection = 'row';
+    row.style.alignItems = 'center';
+
+    const msg = document.createElement('span');
+    msg.className = 'name';
+    msg.style.color = 'var(--warn)';
+    msg.textContent = `Delete this meal entry? This can't be undone.`;
+    row.appendChild(msg);
+
+    const yesBtn = document.createElement('button');
+    yesBtn.textContent = 'Delete';
+    yesBtn.className = 'mode-btn profile-delete-btn';
+    yesBtn.style.margin = '0';
+    yesBtn.onclick = () => {
+        const { profiles: p2 } = getActiveProfile();
+        p2[profileId].mealLog = (p2[profileId].mealLog || []).filter(e => e.timestamp !== entry.timestamp);
+        saveProfiles(p2);
+        renderMealLog();
+    };
+    row.appendChild(yesBtn);
+
+    const noBtn = document.createElement('button');
+    noBtn.textContent = 'Cancel';
+    noBtn.className = 'mode-btn';
+    noBtn.style.margin = '0';
+    noBtn.onclick = () => renderMealLog();
+    row.appendChild(noBtn);
 }
 
 document.getElementById('saveMealBtn').onclick = saveMeal;
@@ -1206,6 +1279,22 @@ function generateReport() {
         return;
     }
 
+    // Target range is a profile-level setting, not a per-meal snapshot —
+    // it's expected to change rarely, so we don't bloat every row with it.
+    // Instead, if it was last changed *after* the oldest meal in the
+    // currently-stored log, we flag that once in the header so a provider
+    // knows not to read every row against today's range.
+    let targetRangeHtml = '';
+    if (profile.targetLow || profile.targetHigh) {
+        const rangeStr = `${profile.targetLow || '?'}–${profile.targetHigh || '?'}`;
+        targetRangeHtml = `<p class="report-meta">Target range: ${rangeStr}</p>`;
+        if (profile.targetRangeUpdatedAt && profile.targetRangeUpdatedAt > log[0].timestamp) {
+            const changeD = new Date(profile.targetRangeUpdatedAt);
+            const changeStr = changeD.toLocaleDateString();
+            targetRangeHtml += `<p class="report-flag">⚠ Target range changed ${changeStr} — meals logged before this date may reflect a different target.</p>`;
+        }
+    }
+
     const rows = [...log].map(entry => {
         const d = new Date(entry.timestamp);
         const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1231,7 +1320,13 @@ function generateReport() {
 
     container.innerHTML = `<h2>InhaleToEat — Meal Report</h2>
         <p class="report-meta">Profile: ${profile.name} &nbsp;|&nbsp; ${log.length} meal${log.length === 1 ? '' : 's'} &nbsp;|&nbsp; Generated: ${generatedStr}</p>
+        ${targetRangeHtml}
         <table>
+            <colgroup>
+                <col class="col-datetime"><col class="col-carbs"><col class="col-protein"><col class="col-pizza">
+                <col class="col-acr"><col class="col-pf"><col class="col-basal"><col class="col-resistance">
+                <col class="col-dose"><col class="col-outcome">
+            </colgroup>
             <thead><tr>
                 <th>Date/Time</th><th>Carbs</th><th>Protein source</th><th>Pizza Mode</th>
                 <th>ACR used</th><th>PF used</th><th>Basal</th><th>Resistance</th><th>Dose(s)</th><th>Outcome</th>
@@ -1389,6 +1484,9 @@ document.getElementById('addProfileBtn').onclick = () => {
         acr: '35',
         pf: '60',
         basalDose: '',
+        targetLow: '',
+        targetHigh: '',
+        targetRangeUpdatedAt: null,
         unit: 'g',
         mode: 'average',
         weightGrams: 300,
@@ -1564,6 +1662,19 @@ function calc() {
 // triggers a recalculation on every keystroke.
 document.getElementById('basalDose').addEventListener('input', function() {
     updateActiveProfile({ basalDose: this.value });
+});
+
+// Target range is likewise never read by calc() or by outcome tagging —
+// it's shown on the printed report for reference only. Unlike basalDose,
+// we listen on 'change' (fires once, on blur/enter) rather than 'input',
+// because we stamp targetRangeUpdatedAt alongside the new value and want
+// that timestamp to mark when an edit was committed, not every keystroke
+// along the way — that timestamp is what lets the report flag a change
+// that happened within the window of currently-stored meals.
+['targetLow', 'targetHigh'].forEach(fieldId => {
+    document.getElementById(fieldId).addEventListener('change', function() {
+        updateActiveProfile({ [fieldId]: this.value, targetRangeUpdatedAt: Date.now() });
+    });
 });
 
 // --- 7. STARTUP SEQUENCE ---
