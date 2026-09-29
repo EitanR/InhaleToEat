@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.4.0 (Sep 2026)
+  Version: 1.5.0 (Sep 2026)
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.4.0"
+  version: "1.5.0"
 };
 </script>
  
@@ -235,12 +235,24 @@ body {
         .close:hover {color:var(--ink);}
         .tutorial-text {line-height:1.6;font-size:1.1em;}
         .tutorial-text strong {color:var(--ink);}
+        /* Accordion via native <details>/<summary> — stacks vertically at
+           any width (no horizontal-tab-bar problem on narrow phones),
+           keyboard/screen-reader accessible with zero custom JS or ARIA,
+           and degrades gracefully with JS off. */
+        .tut-section {border:2px solid var(--track-border);border-radius:12px;margin-bottom:10px;overflow:hidden;}
+        .tut-section summary {font-size:1.15em;font-weight:bold;padding:14px 16px;cursor:pointer;background:var(--track);color:var(--ink);list-style:none;display:flex;align-items:center;justify-content:space-between;}
+        .tut-section summary::-webkit-details-marker {display:none;}
+        .tut-section summary::after {content:'+';font-size:1.3em;margin-left:10px;flex-shrink:0;}
+        .tut-section[open] summary::after {content:'\2212';}
+        .tut-section .tutorial-text {padding:16px;}
+        .info-link {cursor:pointer;text-decoration:underline dotted;color:var(--ink);font-size:0.95em;white-space:nowrap;}
         @media (max-width:600px) {
             .mode-btn {font-size:1.1em;padding:12px;}
             .slider {height:60px;}
             .slider::-webkit-slider-thumb {width:80px;height:80px;}
             .tooltip::after {font-size:1em;white-space:normal;max-width:90vw;}
             .tutorial-btn {font-size:1.1em;margin-left:10px;}
+            .tut-section summary {font-size:1.05em;padding:12px 14px;}
             /* 80px thumb overhangs the track by 40px at min/max value —
                container padding needs to be at least that wide or the
                overhang gets clipped by body's overflow-x:hidden */
@@ -694,7 +706,7 @@ input[type=number] {
             <div class="slider-value" id="pfVal">0.60</div>
         </div>
 
-        <p style="margin:15px 0 5px;font-size:1.3em;">Digestion Mode:</p>
+        <p style="margin:15px 0 5px;font-size:1.3em;">Digestion Mode: <span class="info-link" data-tut="tut-digestion">ℹ️ What's this?</span></p>
         <div class="digestion-row">
             <button class="mode-btn active" data-mode="average" id="mode-average">
                 Average Digester<br><span class="mode-desc">Standard timing</span>
@@ -708,6 +720,7 @@ input[type=number] {
             <button class="mode-btn" id="pizzaModeToggle" style="flex:0 1 auto;">🍕 Pizza Mode</button>
         </div>
         <p class="mode-desc" id="pizzaModeDesc" style="text-align:center;">Off — for high-fat, high-carb meals with slow, extended digestion (splits carbs like protein, adds a 2nd follow-up dose)</p>
+        <p style="text-align:center;margin-top:2px;"><span class="info-link" data-tut="tut-pizza">ℹ️ Learn more about Pizza Mode</span></p>
     </div> <div class="input-section" style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
     <div style="text-align: center; width: 100%;">
         <label class="big-input label">Real carbs (g) <span class="tooltip" data-tip="Fast-acting carbs">ℹ️</span>:</label>
@@ -767,6 +780,7 @@ input[type=number] {
             <span id="delayed2Text"></span>
             <div class="cart-row" id="delayed2Carts"></div>
         </div>
+        <p style="text-align:center;margin-top:2px;"><span class="info-link" data-tut="tut-cartridges">ℹ️ What do these chips mean?</span></p>
 
         <div class="row" style="justify-content:center; margin-top:10px;">
             <button class="tutorial-btn" id="saveMealBtn" style="margin:0;">💾 Save this meal</button>
@@ -795,28 +809,83 @@ input[type=number] {
     <div id="tutorial-modal" class="modal">
         <div class="modal-content">
             <span class="close" id="close-tutorial">×</span>
-            <div class="tutorial-text">
-                <strong>Finding Your Afrezza Carb Ratio (ACR) & Protein Factor</strong><br><br>
-                Forget injected ratios — Afrezza's hepatic bias and fast clearance mean your numbers will look 'weaker' (higher ACR), and that's normal for smooth control.<br><br>
+            <h2 style="margin-top:0;">How InhaleToEat Works</h2>
+            <div class="tutorial-accordion">
 
-                <strong>Step 1: Tune ACR with carb-focused meals</strong><br>
-                • Test a known carb load (e.g., 30g rice or bread, low protein/fat).<br>
-                • Dose upfront with the app's 'NOW' recommendation.<br>
-                • Monitor BG rise/drop.<br>
-                • Adjust ACR: <strong>higher</strong> if you go low, <strong>lower</strong> if high.<br>
-                • Typical range: 30–45g carbs per 4u. Many optimized users land 35–40.<br><br>
+                <details id="tut-acr" class="tut-section">
+                    <summary>Finding Your ACR & Protein Factor</summary>
+                    <div class="tutorial-text">
+                        Forget injected ratios — Afrezza's hepatic bias and fast clearance mean your numbers will look 'weaker' (higher ACR), and that's normal for smooth control.<br><br>
 
-                <strong>Step 2: Tune Protein Factor with zero-carb meals</strong><br>
-                • Eat high-protein, zero-carb (e.g., 300g steak or chicken — vary fat/speed sliders).<br>
-                • Use the app for dose & split. Monitor 4–5 hours.<br>
-                • Late high → increase PGF (0.65–0.75 typical for low-carb).<br>
-                • Low → decrease PGF.<br><br>
+                        <strong>Step 1: Tune ACR with carb-focused meals</strong><br>
+                        • Test a known carb load (e.g., 30g rice or bread, low protein/fat).<br>
+                        • Dose upfront with the app's 'NOW' recommendation.<br>
+                        • Monitor BG rise/drop.<br>
+                        • Adjust ACR: <strong>higher</strong> if you go low, <strong>lower</strong> if high.<br>
+                        • Typical range: 30–45g carbs per 4u. Many optimized users land 35–40.<br><br>
 
-                <strong>Pro tips</strong><br>
-                • <strong>Start conservative:</strong> Use a higher ACR (40–50) especially if new to Afrezza, sensitive (honeymoon/LADA), or insulin-naïve — this mimics the old Ultra Conservative mode safely.<br>
-                • Log 5–10 meals before finalizing numbers.<br>
-                • Tweak ACR by 5, PGF by 0.05.<br>
-                • Ratios can vary by time of day, activity, or illness — trust what keeps you in range.
+                        <strong>Step 2: Tune Protein Factor with zero-carb meals</strong><br>
+                        • Eat high-protein, zero-carb (e.g., 300g steak or chicken — vary fat/speed sliders).<br>
+                        • Use the app for dose & split. Monitor 4–5 hours.<br>
+                        • Late high → increase PGF (0.65–0.75 typical for low-carb).<br>
+                        • Low → decrease PGF.<br><br>
+
+                        <strong>Pro tips</strong><br>
+                        • <strong>Start conservative:</strong> Use a higher ACR (40–50) especially if new to Afrezza, sensitive (honeymoon/LADA), or insulin-naïve — this mimics the old Ultra Conservative mode safely.<br>
+                        • Log 5–10 meals before finalizing numbers.<br>
+                        • Tweak ACR by 5, PGF by 0.05.<br>
+                        • Ratios can vary by time of day, activity, or illness — trust what keeps you in range.
+                    </div>
+                </details>
+
+                <details id="tut-digestion" class="tut-section">
+                    <summary>Digestion Mode: Average vs Fast</summary>
+                    <div class="tutorial-text">
+                        This is your personal baseline metabolic speed — separate from the Protein Speed and Fat Load sliders, which describe the <em>meal</em>. Digestion Mode describes <em>you</em>, and it's saved per profile, just like ACR.<br><br>
+
+                        <strong>Average Digester</strong> — standard timing. Start here. It's the right default for most people, including anyone new to Afrezza.<br><br>
+
+                        <strong>Fast Digester ⚡</strong> — quicker, less delay. Shifts more of the dose upfront and shortens the gap before any follow-up dose. This fits people whose CGM shows an early spike followed by a crash if they wait for the app's normal delayed-dose timing — i.e., their own gut empties faster than the average assumption.<br><br>
+
+                        • Don't guess at this one — switch to Fast only after you've seen a consistent early-spike-then-crash pattern on Average, ideally over a few meals, not just one.<br>
+                        • You can flip it per meal if your response genuinely varies day to day, but for most people it's a "set once" choice.
+                    </div>
+                </details>
+
+                <details id="tut-pizza" class="tut-section">
+                    <summary>🍕 Pizza Mode</summary>
+                    <div class="tutorial-text">
+                        A dedicated toggle for complex, high-fat, high-carb meals — pizza, fried food with carbs, buffets, holiday plates. With meals like that, the fat load is the real problem, more than the protein: it drags out digestion well past what a single follow-up dose can cover.<br><br>
+
+                        <strong>What it changes:</strong> carbs get split pre/later the same way protein already is, and a second, later follow-up checkpoint appears (staggered further out than the normal one) to catch the extended glycemic wave.<br><br>
+
+                        <strong>What it doesn't change:</strong> normal-mode dosing math is completely untouched when this toggle is off — Pizza Mode is opt-in, per meal.<br><br>
+
+                        • It's a one-meal toggle, not a saved setting — turn it on right before dosing that specific meal, and it resets afterward.<br>
+                        • If you're not sure a meal qualifies, ask: "is this high in <strong>both</strong> fat and carbs?" If it's just one or the other, you probably don't need it.
+                    </div>
+                </details>
+
+                <details id="tut-cartridges" class="tut-section">
+                    <summary>Reading Your Dose: Cartridge Chips</summary>
+                    <div class="tutorial-text">
+                        Every dose is shown as real Afrezza cartridge colors, not just a number — 4u is <strong>blue</strong>, 8u is <strong>green</strong>, 12u is <strong>yellow</strong>, matching the actual cartridges in your hand. The unit number is always printed on the chip too, since color alone isn't reliable to sort out under poor lighting.<br><br>
+
+                        Doses are always built from the fewest cartridges possible — largest sizes first — so a 16u dose shows as one yellow (12) + one blue (4), never four blues. If a single dose ever needs more than six cartridges of the same size, the chips collapse into one chip marked "×N" instead of drawing that many individually, just to keep the display readable.
+                    </div>
+                </details>
+
+                <details id="tut-meallog" class="tut-section">
+                    <summary>Meal Log, Outcomes & the Printed Report</summary>
+                    <div class="tutorial-text">
+                        Nothing is saved automatically — tap <strong>💾 Save this meal</strong> only for the meals you actually want a record of. Each profile keeps its 15 most recent saved meals; once you hit 15, the oldest one drops off to make room for the next.<br><br>
+
+                        Once you know how a saved meal turned out, open <strong>📋 Meal Log</strong> and tag it <strong>Low</strong>, <strong>On target</strong>, or <strong>High</strong>. That's for you and your provider to read patterns from — the app never scores, calculates, or suggests a change based on these tags. Tapped the wrong tag, or logged a duplicate by mistake? Tap 🗑 Delete on that entry to remove it.<br><br>
+
+                        <strong>Printable report:</strong> one tap turns your current log into a plain black-and-white table — ready to hand to, or save as a PDF for, a healthcare provider. It includes the ACR, Protein Factor, Basal dose, and Today's Adjustment that were actually in effect for each meal, plus your set target range in the header (flagged if that range changed partway through the meals shown, so nothing is read against the wrong target by mistake).
+                    </div>
+                </details>
+
             </div>
         </div>
     </div>
@@ -870,6 +939,7 @@ input[type=number] {
 			<button class="tutorial-btn" id="printReportBtn" style="margin-bottom:10px;">🖨️ Print / export report</button>
 			<p style="color:var(--muted);margin-bottom:10px;">
       Last 15 saved meals for this profile. Tap a meal's outcome once you know how it went.
+      <span class="info-link" data-tut="tut-meallog">ℹ️ How does this work?</span>
 			</p>
 			<div id="mealLogList"></div>
 		</div>
@@ -1687,8 +1757,31 @@ document.getElementById('basalDose').addEventListener('input', function() {
 });
 
 // Load Modal Toggles
-document.getElementById('open-tutorial').onclick = () => document.getElementById('tutorial-modal').style.display = 'flex';
+// openTutorial(sectionId): opens the modal and, if a section id is given,
+// collapses every other section and expands + scrolls to that one. Called
+// both by the original "How to find your numbers?" button and by the
+// small ℹ️ info-links placed next to Digestion Mode, Pizza Mode, the
+// cartridge chips, and the Meal Log button.
+function openTutorial(sectionId) {
+    // The Meal Log info-link opens this modal from inside another one —
+    // since all modals share a z-index, whichever is later in the DOM
+    // paints on top, so close any other open modal first or the tutorial
+    // modal would open invisibly behind it.
+    document.querySelectorAll('.modal').forEach(m => {
+        if (m.id !== 'tutorial-modal') m.style.display = 'none';
+    });
+    document.getElementById('tutorial-modal').style.display = 'flex';
+    if (sectionId) {
+        document.querySelectorAll('.tut-section').forEach(d => { d.open = (d.id === sectionId); });
+        const target = document.getElementById(sectionId);
+        if (target) target.scrollIntoView({ block: 'start' });
+    }
+}
+document.getElementById('open-tutorial').onclick = () => openTutorial('tut-acr');
 document.getElementById('close-tutorial').onclick = () => document.getElementById('tutorial-modal').style.display = 'none';
+document.querySelectorAll('.info-link').forEach(el => {
+    el.addEventListener('click', () => openTutorial(el.dataset.tut));
+});
 
 // Run order: Profiles -> Settings -> UI -> Math
 loadSavedSettings();
