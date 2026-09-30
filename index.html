@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.5.0 (Sep 2026)
+  Version: 1.6.0 (Sep 2026)
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.5.0"
+  version: "1.6.0"
 };
 </script>
  
@@ -221,6 +221,12 @@ body {
         #result {font-size:5em;margin:40px 0;color:var(--ink);text-align:center;font-family:var(--font-num);font-variant-numeric:tabular-nums;}
         #delayed {font-size:2.8em;color:var(--muted);text-align:center;margin:20px 0;font-family:var(--font-num);font-variant-numeric:tabular-nums;}
         .disclaimer {font-size:0.9em;color:var(--warn);margin:20px;padding:10px;background:var(--panel);border-radius:8px;}
+        /* Hidden by default — only shown when updateSafetyFlag() decides the
+           entered BG/trend combo against the target range warrants a pause.
+           Solid --warn background (not just colored text) so it's genuinely
+           hard to skim past, without resorting to blinking (a real
+           photosensitivity/accessibility hazard we're deliberately avoiding). */
+        .bg-flag {display:none;margin:12px auto;padding:12px 16px;max-width:480px;text-align:center;font-size:1.1em;font-weight:bold;color:#fff;background:var(--warn);border-radius:10px;}
         .new-feature {color:var(--muted);font-size:0.9em;margin-top:8px;text-align:center;}
         .tutorial-btn {font-size:1.2em;padding:8px 12px;background:var(--track);color:var(--ink);border:2px solid var(--track-border);border-radius:12px;cursor:pointer;margin-left:15px;}
         .tutorial-btn:active {transform:scale(0.98);}
@@ -555,16 +561,17 @@ input[type=number] {
     overflow-wrap: break-word;
   }
   #printReport th { background: #eee; }
-  #printReport col.col-datetime { width: 11%; }
-  #printReport col.col-carbs { width: 6%; }
-  #printReport col.col-protein { width: 8%; }
-  #printReport col.col-pizza { width: 6%; }
-  #printReport col.col-acr { width: 6%; }
-  #printReport col.col-pf { width: 6%; }
-  #printReport col.col-basal { width: 6%; }
-  #printReport col.col-resistance { width: 8%; }
-  #printReport col.col-dose { width: 27%; }
-  #printReport col.col-outcome { width: 9%; }
+  #printReport col.col-datetime { width: 10%; }
+  #printReport col.col-carbs { width: 5%; }
+  #printReport col.col-protein { width: 7%; }
+  #printReport col.col-pizza { width: 5%; }
+  #printReport col.col-acr { width: 5%; }
+  #printReport col.col-pf { width: 5%; }
+  #printReport col.col-basal { width: 5%; }
+  #printReport col.col-resistance { width: 7%; }
+  #printReport col.col-bg { width: 8%; }
+  #printReport col.col-dose { width: 24%; }
+  #printReport col.col-outcome { width: 8%; }
 }
 @supports (-webkit-touch-callout: none) {
   .container {
@@ -767,6 +774,20 @@ input[type=number] {
             <strong>Safety note:</strong> For severe gastroparesis, predictive splits may be unreliable. Dose reactively.
         </div>
 
+        <p class="slider-label" style="margin-bottom:5px;">
+            Current BG & trend <span class="info-link" data-tut="tut-bgflag">ℹ️ What's this?</span>
+            <span style="font-size:0.6em;color:var(--muted);display:block;">(optional — never used in dosing math, just a caution flag)</span>
+        </p>
+        <div class="row" style="justify-content:center;">
+            <input type="number" step="1" min="0" id="currentBG" placeholder="BG" style="max-width:100px;text-align:center;">
+        </div>
+        <div class="digestion-row">
+            <button class="mode-btn" data-trend="rising" id="trend-rising">↗ Rising</button>
+            <button class="mode-btn" data-trend="flat" id="trend-flat">→ Flat</button>
+            <button class="mode-btn" data-trend="falling" id="trend-falling">↘ Falling</button>
+        </div>
+        <div id="bgFlag" class="bg-flag">🚩 Check your BG/trend before dosing — pay extra attention here.</div>
+
         <div id="proteinCalc">≈ 63 g protein (+ 38 g equiv.) + 0 g real carbs</div>
         <div id="result">
             <span id="resultText"></span>
@@ -883,6 +904,21 @@ input[type=number] {
                         Once you know how a saved meal turned out, open <strong>📋 Meal Log</strong> and tag it <strong>Low</strong>, <strong>On target</strong>, or <strong>High</strong>. That's for you and your provider to read patterns from — the app never scores, calculates, or suggests a change based on these tags. Tapped the wrong tag, or logged a duplicate by mistake? Tap 🗑 Delete on that entry to remove it.<br><br>
 
                         <strong>Printable report:</strong> one tap turns your current log into a plain black-and-white table — ready to hand to, or save as a PDF for, a healthcare provider. It includes the ACR, Protein Factor, Basal dose, and Today's Adjustment that were actually in effect for each meal, plus your set target range in the header (flagged if that range changed partway through the meals shown, so nothing is read against the wrong target by mistake).
+                    </div>
+                </details>
+
+                <details id="tut-bgflag" class="tut-section">
+                    <summary>Current BG & Trend Flag</summary>
+                    <div class="tutorial-text">
+                        A dose recommendation that's blind to where you actually are right now is missing something real — 4u might be exactly right at 110 and rising, and a genuinely bad idea at 75 flat or falling. This is an <em>optional</em> pair of fields (Current BG, and a Rising / Flat / Falling trend) that let the app notice that gap and put up a flag — nothing more.<br><br>
+
+                        <strong>What it does:</strong> compares what you enter against your Target Range setting, and shows a red "check before dosing" banner if BG is at or below your target-range low, or in the bottom third of your range with a Flat or Falling trend.<br><br>
+
+                        <strong>What it deliberately doesn't do:</strong> calculate a correction, suggest a smaller or larger dose, or touch the dosing math in any way — that's a different, much higher-stakes kind of tool, and outside what this app is for. A sharp, fast trend is a candidate for an actual correction dose first, which is squarely a conversation with your CGM and your provider, not this app.<br><br>
+
+                        • Leave both fields blank if you don't want this — nothing changes, no flag, no friction.<br>
+                        • It resets when you switch profiles, since a BG reading only means something for the person it came from.<br>
+                        • The point isn't to lean on this forever — it's to catch the edge case while you're still building your own judgment for when a dose needs a second look.
                     </div>
                 </details>
 
@@ -1037,6 +1073,18 @@ function loadSavedSettings() {
     document.getElementById('targetLow').value = p.targetLow || '';
     document.getElementById('targetHigh').value = p.targetHigh || '';
 
+    // A BG/trend entered for one person is meaningless — and actively
+    // misleading — once you switch to another profile, so this always
+    // clears on profile switch (loadSavedSettings runs on every switch,
+    // and once at startup where it's a harmless no-op).
+    document.getElementById('currentBG').value = '';
+    currentTrend = null;
+    ['rising', 'flat', 'falling'].forEach(t => {
+        const btn = document.getElementById('trend-' + t);
+        if (btn) btn.classList.remove('active');
+    });
+    if (typeof updateSafetyFlag === 'function') updateSafetyFlag();
+
     proteinUnit = p.unit;
     currentMode = p.mode;
     weightInGrams = p.weightGrams;
@@ -1067,7 +1115,9 @@ const inputs = {
     pVal: document.getElementById('pVal'),
     fVal: document.getElementById('fVal'),
     pfVal: document.getElementById('pfVal'),
-    sensVal: document.getElementById('sensVal')
+    sensVal: document.getElementById('sensVal'),
+    currentBG: document.getElementById('currentBG'),
+    bgFlag: document.getElementById('bgFlag')
 };
 
 // --- 3. MODAL & PRESET LOGIC ---
@@ -1180,6 +1230,49 @@ document.getElementById('pizzaModeToggle').onclick = function() {
     calc();
 };
 
+// --- 5c-2. BG & TREND SAFETY FLAG ---
+// Meal-specific, like Pizza Mode — NOT saved to the profile, and NEVER
+// read by calc(). This exists purely to flag a risky combination for the
+// human to notice; it does not calculate a correction or alter the dose
+// in any way. Rule (reusing the profile's own Target Range so there's no
+// second number to configure): flag if entered BG is at/below the target
+// range's low bound, or in the bottom THIRD of the range while trend is
+// Flat or Falling. A Rising trend, or being in the upper two-thirds of
+// the range, never flags — by design, to avoid crying wolf on ordinary
+// flat/falling BGs that are nowhere near a problem yet.
+let currentTrend = null;
+
+['rising', 'flat', 'falling'].forEach(t => {
+    document.getElementById('trend-' + t).onclick = function() {
+        currentTrend = (currentTrend === t) ? null : t; // tap again to clear
+        ['rising', 'flat', 'falling'].forEach(t2 => {
+            document.getElementById('trend-' + t2).classList.toggle('active', currentTrend === t2);
+        });
+        updateSafetyFlag();
+    };
+});
+
+inputs.currentBG.addEventListener('input', updateSafetyFlag);
+
+function updateSafetyFlag() {
+    const { id, profiles } = getActiveProfile();
+    const p = profiles[id];
+    const bg = parseFloat(inputs.currentBG.value);
+    const low = parseFloat(p.targetLow);
+    const high = parseFloat(p.targetHigh);
+
+    let flagged = false;
+    if (!isNaN(bg) && !isNaN(low) && !isNaN(high) && high > low) {
+        const thirdPoint = low + (high - low) / 3;
+        if (bg <= low) {
+            flagged = true;
+        } else if (bg <= thirdPoint && (currentTrend === 'flat' || currentTrend === 'falling')) {
+            flagged = true;
+        }
+    }
+    inputs.bgFlag.style.display = flagged ? 'block' : 'none';
+}
+
 // --- 5d. MEAL LOG ---
 // Explicit save only (a "Save this meal" tap) — never auto-logged from
 // calc(), since calc() fires on every slider drag and would flood the
@@ -1203,6 +1296,9 @@ function saveMeal() {
         pfUsed: inputs.proteinFactor.value,
         basalUsed: p.basalDose || '',
         resistanceUsed: inputs.sensitivityAdjust.value,
+        bgUsed: inputs.currentBG.value || '',
+        trendUsed: currentTrend || '',
+        bgFlagged: inputs.bgFlag.style.display === 'block',
         doseNowText: inputs.resultText.textContent,
         doseLaterText: inputs.delayedText.textContent,
         doseLater2Text: (inputs.delayed2.style.display !== 'none') ? inputs.delayed2Text.textContent : '',
@@ -1374,6 +1470,16 @@ function generateReport() {
         const basalStr = (entry.basalUsed !== undefined && entry.basalUsed !== '') ? `${entry.basalUsed} u` : '—';
         const resistanceRaw = parseInt(entry.resistanceUsed || 0);
         const resistanceStr = resistanceRaw === 0 ? 'No adjustment' : (resistanceRaw > 0 ? `+${resistanceRaw}%` : `${resistanceRaw}%`);
+        // Compact combined BG/trend cell — one column, not two, to keep the
+        // report from creeping back toward the overflow we already fixed
+        // once. Arrow stands in for the trend word; the flag (when it
+        // tripped at save time) gets its own red mark so it's still
+        // scannable at a glance down the column.
+        const trendArrow = { rising: '↗', flat: '→', falling: '↘' }[entry.trendUsed] || '';
+        const bgCellText = entry.bgUsed ? `${entry.bgUsed}${trendArrow ? ' ' + trendArrow : ''}` : '—';
+        const bgCell = entry.bgFlagged
+            ? `<span style="color:#900;font-weight:bold;">${bgCellText} 🚩</span>`
+            : bgCellText;
         return `<tr>
             <td>${dateStr}</td>
             <td>${entry.carbs} g</td>
@@ -1383,6 +1489,7 @@ function generateReport() {
             <td>${entry.pfUsed}%</td>
             <td>${basalStr}</td>
             <td>${resistanceStr}</td>
+            <td>${bgCell}</td>
             <td>${doses}</td>
             <td>${entry.outcome === 'pending' ? '—' : entry.outcome}</td>
         </tr>`;
@@ -1395,11 +1502,11 @@ function generateReport() {
             <colgroup>
                 <col class="col-datetime"><col class="col-carbs"><col class="col-protein"><col class="col-pizza">
                 <col class="col-acr"><col class="col-pf"><col class="col-basal"><col class="col-resistance">
-                <col class="col-dose"><col class="col-outcome">
+                <col class="col-bg"><col class="col-dose"><col class="col-outcome">
             </colgroup>
             <thead><tr>
                 <th>Date/Time</th><th>Carbs</th><th>Protein source</th><th>Pizza Mode</th>
-                <th>ACR used</th><th>PF used</th><th>Basal</th><th>Resistance</th><th>Dose(s)</th><th>Outcome</th>
+                <th>ACR used</th><th>PF used</th><th>Basal</th><th>Resistance</th><th>BG (trend)</th><th>Dose(s)</th><th>Outcome</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table>`;
@@ -1744,6 +1851,7 @@ document.getElementById('basalDose').addEventListener('input', function() {
 ['targetLow', 'targetHigh'].forEach(fieldId => {
     document.getElementById(fieldId).addEventListener('change', function() {
         updateActiveProfile({ [fieldId]: this.value, targetRangeUpdatedAt: Date.now() });
+        updateSafetyFlag();
     });
 });
 
