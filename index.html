@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.6.0 (Sep 2026)
+  Version: 1.7.0 (Sep 2026)
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.6.0"
+  version: "1.7.0"
 };
 </script>
  
@@ -386,6 +386,7 @@ input[type=number] {
 .preset-row {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 14px;
   margin: 14px auto 24px;
 }
@@ -749,6 +750,7 @@ input[type=number] {
 </div>
 
 <div class="preset-row">
+    <button class="preset-btn" onclick="setFoodWeightPreset('XS')" title="Negligible / no protein worth counting — e.g. plain carbs">XS</button>
     <button class="preset-btn" onclick="setFoodWeightPreset('S')">Small</button>
     <button class="preset-btn" onclick="setFoodWeightPreset('M')">Medium</button>
     <button class="preset-btn" onclick="setFoodWeightPreset('L')">Large</button>
@@ -843,7 +845,8 @@ input[type=number] {
                         • Dose upfront with the app's 'NOW' recommendation.<br>
                         • Monitor BG rise/drop.<br>
                         • Adjust ACR: <strong>higher</strong> if you go low, <strong>lower</strong> if high.<br>
-                        • Typical range: 30–45g carbs per 4u. Many optimized users land 35–40.<br><br>
+                        • Typical range: 30–45g carbs per 4u. Many optimized users land 35–40.<br>
+                        • For these tests, use the <strong>XS</strong> protein preset — it's fixed at 0g, for meals that are essentially "naked carbs" (plain rice, bread, fruit, a starchy side with nothing to slow it down). That keeps the test honest: Small still carries enough protein to shift the math, which isn't what you want when you're isolating ACR alone.<br><br>
 
                         <strong>Step 2: Tune Protein Factor with zero-carb meals</strong><br>
                         • Eat high-protein, zero-carb (e.g., 300g steak or chicken — vary fat/speed sliders).<br>
@@ -1185,7 +1188,11 @@ function updateProteinDisplay() {
 
 function setFoodWeightPreset(size) {
     activeProteinSize = size;
-    weightInGrams = foodPresets[size];
+    // XS is fixed at 0g — deliberately NOT part of the customizable
+    // foodPresets object (unlike S/M/L), since the entire point is "no
+    // protein worth counting." Letting it drift via the Preset modal
+    // would blur the one thing this button is for.
+    weightInGrams = (size === 'XS') ? 0 : foodPresets[size];
     updateActiveProfile({ weightGrams: weightInGrams });
     updateProteinDisplay();
 }
