@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.8.0 (Nov 2026)
+  Version: 1.9.0 (Nov 2026)
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,7 +30,7 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.8.0",
+  version: "1.9.0",
   build: "2026-11-01"
 };
 </script>
@@ -717,11 +717,14 @@ input[type=number] {
 
         <p style="margin:15px 0 5px;font-size:1.3em;">Digestion Mode: <span class="info-link" data-tut="tut-digestion">ℹ️ What's this?</span></p>
         <div class="digestion-row">
+            <button class="mode-btn" data-mode="slower" id="mode-slower">
+                Slower Digester 🐢<br><span class="mode-desc">Longer / more delay</span>
+            </button>
             <button class="mode-btn active" data-mode="average" id="mode-average">
                 Average Digester<br><span class="mode-desc">Standard timing</span>
             </button>
             <button class="mode-btn" data-mode="fast" id="mode-fast">
-                Fast Digester ⚡<br><span class="mode-desc">Quicker / less delay</span>
+                Faster Digester ⚡<br><span class="mode-desc">Quicker / less delay</span>
             </button>
         </div>
 
@@ -864,16 +867,20 @@ input[type=number] {
                 </details>
 
                 <details id="tut-digestion" class="tut-section">
-                    <summary>Digestion Mode: Average vs Fast</summary>
+                    <summary>Digestion Mode: Slower / Average / Faster</summary>
                     <div class="tutorial-text">
-                        This is your personal baseline metabolic speed — separate from the Protein Speed and Fat Load sliders, which describe the <em>meal</em>. Digestion Mode describes <em>you</em>, and it's saved per profile, just like ACR.<br><br>
+                        This is your personal baseline digestion speed — separate from the Protein Speed and Fat Load sliders, which describe the <em>meal</em>. Digestion Mode describes <em>you</em>, and it's saved per profile, just like ACR.<br><br>
 
                         <strong>Average Digester</strong> — standard timing. Start here. It's the right default for most people, including anyone new to Afrezza.<br><br>
 
-                        <strong>Fast Digester ⚡</strong> — quicker, less delay. Shifts more of the dose upfront and shortens the gap before any follow-up dose. This fits people whose CGM shows an early spike followed by a crash if they wait for the app's normal delayed-dose timing — i.e., their own gut empties faster than the average assumption.<br><br>
+                        <strong>Faster Digester ⚡</strong> — quicker, less delay. Shifts more of the dose upfront and shortens the gap before any follow-up dose. This fits people whose CGM shows an early spike followed by a crash if they wait for the app's normal delayed-dose timing — i.e., their own gut empties faster than the average assumption.<br><br>
 
-                        • Don't guess at this one — switch to Fast only after you've seen a consistent early-spike-then-crash pattern on Average, ideally over a few meals, not just one.<br>
-                        • You can flip it per meal if your response genuinely varies day to day, but for most people it's a "set once" choice.
+                        <strong>Slower Digester 🐢 (experimental)</strong> — longer delay before the follow-up dose, and a little more of the dose held back for later. This fits people whose glucose rise from protein and fat consistently arrives late: slower gastric emptying, GLP-1 medications (Ozempic, Mounjaro and similar), or just a naturally slow gut. The Slower timings are a first estimate and haven't been validated against lots of real-world data yet, so treat them as a starting point and watch your own CGM.<br><br>
+
+                        • Don't guess at this one — move off Average only after you've seen a consistent pattern over a few meals, not just one. For Faster, that's an early spike then a crash; for Slower, a rise that keeps showing up well after the follow-up dose has already worn off.<br>
+                        • Your digestion can change over time — starting or stopping a GLP-1 medication, weight loss, surgery, illness. Revisit this setting when something like that happens. Meals you save record the mode in use, so a change shows up in your report.<br>
+                        • Slower is not the same as Pizza Mode. Digestion Mode is about <em>you</em> (a standing trait); Pizza Mode is about <em>this meal</em> (high-fat, high-carb, extended). They can be combined, and the second Pizza checkpoint never goes beyond 6 hours.<br>
+                        • Don't use the Fat Load slider to imitate a slow gut — it describes the food, and Slower exists so you don't have to.
                     </div>
                 </details>
 
@@ -906,6 +913,8 @@ input[type=number] {
                         Nothing is saved automatically — tap <strong>💾 Save this meal</strong> only for the meals you actually want a record of. Each profile keeps its 120 most recent saved meals; once you hit 120, the oldest one drops off to make room for the next.<br><br>
 
                         Once you know how a saved meal turned out, open <strong>📋 Meal Log</strong> and tag it <strong>Low</strong>, <strong>On target</strong>, or <strong>High</strong>. That's for you and your provider to read patterns from — the app never scores, calculates, or suggests a change based on these tags. Tapped the wrong tag, or logged a duplicate by mistake? Tap 🗑 Delete on that entry to remove it.<br><br>
+
+                        <strong>Copy last 10 meals:</strong> one tap copies a short, one-line-per-meal text summary of your 10 most recent saved meals (newest first) to your clipboard — ready to paste into a Zoom chat, message, or email when you want a quick opinion. Your ACR and Protein Factor appear once at the top when they were the same for all 10; if they changed, they show on each line instead. The full printable report below is unchanged and still has everything.<br><br>
 
                         <strong>Printable report:</strong> one tap turns your current log into a plain black-and-white table — ready to hand to, or save as a PDF for, a healthcare provider. It includes the ACR, Protein Factor, Basal dose, and Today's Adjustment that were actually in effect for each meal, plus your set target range in the header (flagged if that range changed partway through the meals shown, so nothing is read against the wrong target by mistake).
                     </div>
@@ -976,7 +985,10 @@ input[type=number] {
 		<div class="modal-content">
 			<span class="close" id="close-meallog-modal">×</span>
 			<h2>Meal Log</h2>
-			<button class="tutorial-btn" id="printReportBtn" style="margin-bottom:10px;">🖨️ Print / export report</button>
+			<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+				<button class="tutorial-btn" id="copySummaryBtn" style="margin:0;">📋 Copy last 10 meals</button>
+				<button class="tutorial-btn" id="printReportBtn" style="margin:0;">🖨️ Print / export full report</button>
+			</div>
 			<p style="color:var(--muted);margin-bottom:10px;">
       Last 120 saved meals for this profile. Tap a meal's outcome once you know how it went.
       <span class="info-link" data-tut="tut-meallog">ℹ️ How does this work?</span>
@@ -1182,7 +1194,8 @@ function updateProteinDisplay() {
     
     document.getElementById('unit-g').classList.toggle('active', proteinUnit === 'g');
     document.getElementById('unit-oz').classList.toggle('active', proteinUnit === 'oz');
-    document.getElementById('mode-average').classList.toggle('active', currentMode === 'average');
+    document.getElementById('mode-slower').classList.toggle('active', currentMode === 'slower');
+    document.getElementById('mode-average').classList.toggle('active', currentMode !== 'slower' && currentMode !== 'fast');
     document.getElementById('mode-fast').classList.toggle('active', currentMode === 'fast');
     calc();
 }
@@ -1211,7 +1224,13 @@ document.getElementById('unit-oz').onclick = () => {
     updateProteinDisplay();
 };
 
-document.getElementById('mode-average').onclick = () => { 
+document.getElementById('mode-slower').onclick = () => {
+    currentMode = 'slower';
+    updateActiveProfile({ mode: 'slower' });
+    updateProteinDisplay();
+};
+
+document.getElementById('mode-average').onclick = () => {
     currentMode = 'average'; 
     updateActiveProfile({ mode: 'average' }); 
     updateProteinDisplay(); 
@@ -1300,6 +1319,7 @@ function saveMeal() {
         proteinSpeed: parseInt(inputs.proteinSpeed.value),
         fatLoad: parseInt(inputs.fatLoad.value),
         pizzaMode: pizzaMode,
+        digestionUsed: (currentMode === 'slower' || currentMode === 'fast') ? currentMode : 'average',
         acrUsed: inputs.acr.value,
         pfUsed: inputs.proteinFactor.value,
         basalUsed: p.basalDose || '',
@@ -1323,6 +1343,19 @@ function saveMeal() {
     const original = btn.textContent;
     btn.textContent = '✅ Saved';
     setTimeout(() => { btn.textContent = original; }, 1200);
+}
+
+// Shared display helpers for saved meals (modal, report, and copy summary).
+// weightGrams is always stored in grams; convert for display when the
+// profile was in oz at save time (previously the grams value was printed
+// with an "oz" label, which overstated oz portions by ~28x).
+const DIGESTION_LABELS = { slower: 'Slower', average: 'Average', fast: 'Faster' };
+
+function formatProteinSource(entry) {
+    if (entry.unit === 'oz') {
+        return `${+(entry.weightGrams / G_PER_OZ).toFixed(1)} oz`;
+    }
+    return `${entry.weightGrams} g`;
 }
 
 function renderMealLog() {
@@ -1351,7 +1384,7 @@ function renderMealLog() {
 
         const summary = document.createElement('div');
         summary.innerHTML = `<strong>${dateStr}</strong>${entry.pizzaMode ? ' 🍕' : ''}<br>`
-            + `${entry.carbs}g carbs, ${entry.weightGrams}${unitLabel} protein source<br>`
+            + `${entry.carbs}g carbs, ${formatProteinSource(entry)} protein source<br>`
             + doses;
         row.appendChild(summary);
 
@@ -1469,8 +1502,17 @@ function generateReport() {
         }
     }
 
+    // Digestion Mode is a slow-moving, profile-level setting, so — like the
+    // target range — it's stated once in the header. A row only gets a small
+    // note when its saved mode differs from the current one (e.g. after a
+    // GLP-1 start). Meals saved before v1.9.0 have no mode recorded and show nothing.
+    const currentDigestion = (profile.mode === 'slower' || profile.mode === 'fast') ? profile.mode : 'average';
+    const digestionHtml = `<p class="report-meta">Digestion Mode (current): ${DIGESTION_LABELS[currentDigestion]}</p>`;
+
     const rows = [...log].map(entry => {
         const d = new Date(entry.timestamp);
+        const digestionNote = (entry.digestionUsed && entry.digestionUsed !== currentDigestion)
+            ? `<br><em>(${DIGESTION_LABELS[entry.digestionUsed] || entry.digestionUsed} digestion)</em>` : '';
         const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const unitLabel = entry.unit === 'oz' ? 'oz' : 'g';
         const doses = [entry.doseNowText, entry.doseLaterText !== '(no follow-up)' ? entry.doseLaterText : '', entry.doseLater2Text]
@@ -1491,14 +1533,14 @@ function generateReport() {
         return `<tr>
             <td>${dateStr}</td>
             <td>${entry.carbs} g</td>
-            <td>${entry.weightGrams} ${unitLabel}</td>
+            <td>${formatProteinSource(entry)}</td>
             <td>${entry.pizzaMode ? '🍕 Yes' : 'No'}</td>
             <td>${entry.acrUsed}</td>
             <td>${entry.pfUsed}%</td>
             <td>${basalStr}</td>
             <td>${resistanceStr}</td>
             <td>${bgCell}</td>
-            <td>${doses}</td>
+            <td>${doses}${digestionNote}</td>
             <td>${entry.outcome === 'pending' ? '—' : entry.outcome}</td>
         </tr>`;
     }).join('');
@@ -1506,6 +1548,7 @@ function generateReport() {
     container.innerHTML = `<h2>InhaleToEat — Meal Report</h2>
         <p class="report-meta">Profile: ${profile.name} &nbsp;|&nbsp; ${log.length} meal${log.length === 1 ? '' : 's'} &nbsp;|&nbsp; Generated: ${generatedStr}</p>
         ${targetRangeHtml}
+        ${digestionHtml}
         <table>
             <colgroup>
                 <col class="col-datetime"><col class="col-carbs"><col class="col-protein"><col class="col-pizza">
@@ -1523,6 +1566,106 @@ function generateReport() {
 document.getElementById('printReportBtn').onclick = () => {
     generateReport();
     window.print();
+};
+
+// --- 5f. COPY LAST-10 SUMMARY ---
+// One-tap plain-text snapshot of the 10 most recent saved meals, newest
+// first, for pasting into chat (Zoom, messages, email). One line per meal
+// because chat uses a proportional font — tables don't survive it. Like the
+// printed report it's a pure data dump: no suggestions, no interpretation.
+// The full printable report is unaffected and remains the complete record.
+const SUMMARY_COUNT = 10;
+
+function buildSummaryText() {
+    const { id, profiles } = getActiveProfile();
+    const profile = profiles[id];
+    const log = profile.mealLog || [];
+    if (log.length === 0) return '';
+
+    const recent = log.slice(-SUMMARY_COUNT).reverse();
+    const currentDigestion = (profile.mode === 'slower' || profile.mode === 'fast') ? profile.mode : 'average';
+
+    // Show ACR / PF once in the header when every meal shown used the same
+    // value; otherwise put them on each line so differences stay visible.
+    const sameAcr = new Set(recent.map(e => String(e.acrUsed))).size === 1;
+    const samePf = new Set(recent.map(e => String(e.pfUsed))).size === 1;
+
+    const headerBits = [`Digestion: ${DIGESTION_LABELS[currentDigestion]}`];
+    if (sameAcr) headerBits.push(`ACR ${recent[0].acrUsed}`);
+    if (samePf) headerBits.push(`PF ${recent[0].pfUsed}%`);
+    if (profile.targetLow || profile.targetHigh) {
+        headerBits.push(`Target ${profile.targetLow || '?'}–${profile.targetHigh || '?'}`);
+    }
+    const copied = new Date().toLocaleDateString();
+    const lines = [
+        `InhaleToEat · ${profile.name} · last ${recent.length} meal${recent.length === 1 ? '' : 's'} (newest first)`,
+        `${headerBits.join(' · ')} · copied ${copied}`,
+        ''
+    ];
+
+    const trendArrow = { rising: '↗', flat: '→', falling: '↘' };
+    recent.forEach((e, i) => {
+        const d = new Date(e.timestamp);
+        const when = d.toLocaleDateString([], { month: 'numeric', day: 'numeric' })
+            + ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const parts = [`${when}${e.pizzaMode ? ' 🍕' : ''}`];
+        parts.push(`${e.carbs}g carb, ${formatProteinSource(e)} protein source`);
+        if (e.proteinSpeed !== undefined && e.fatLoad !== undefined) {
+            parts.push(`Speed ${e.proteinSpeed}, Fat ${e.fatLoad}`);
+        }
+        if (e.digestionUsed && e.digestionUsed !== currentDigestion) {
+            parts.push(`${DIGESTION_LABELS[e.digestionUsed] || e.digestionUsed} digestion`);
+        }
+        const perMeal = [];
+        if (!sameAcr) perMeal.push(`ACR ${e.acrUsed}`);
+        if (!samePf) perMeal.push(`PF ${e.pfUsed}%`);
+        if (perMeal.length) parts.push(perMeal.join(', '));
+        const adj = parseInt(e.resistanceUsed || 0);
+        if (adj !== 0) parts.push(`Adj ${adj > 0 ? '+' : ''}${adj}%`);
+        const doses = [e.doseNowText, e.doseLaterText !== '(no follow-up)' ? e.doseLaterText : '', e.doseLater2Text]
+            .filter(Boolean).join(', ');
+        parts.push(doses);
+        if (e.bgUsed) {
+            parts.push(`BG ${e.bgUsed}${trendArrow[e.trendUsed] ? ' ' + trendArrow[e.trendUsed] : ''}${e.bgFlagged ? ' 🚩' : ''}`);
+        }
+        parts.push(`Outcome: ${(!e.outcome || e.outcome === 'pending') ? '—' : e.outcome}`);
+        lines.push(`${i + 1}) ${parts.join(' · ')}`);
+    });
+    return lines.join('\n');
+}
+
+async function copyTextToClipboard(text) {
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
+    } catch (err) { /* fall through to legacy path */ }
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch (err) {
+        return false;
+    }
+}
+
+document.getElementById('copySummaryBtn').onclick = async function() {
+    const btn = this;
+    const original = btn.dataset.label || btn.textContent;
+    btn.dataset.label = original;
+    const text = buildSummaryText();
+    let label;
+    if (!text) label = 'No meals to copy';
+    else label = (await copyTextToClipboard(text)) ? 'Copied ✓' : 'Copy failed — try again';
+    btn.textContent = label;
+    setTimeout(() => { btn.textContent = original; }, 1500);
 };
 
 // --- 5b. PROFILE SWITCHER + MANAGER ---
@@ -1763,9 +1906,14 @@ function calc() {
     let protein_raw = (protein_as_carbs / acr) * 4 * bio_factor;
     let protein_total = protein_raw > 0 ? Math.ceil(protein_raw / 4) * 4 : 0;
 
-    const settings = (currentMode === 'fast') 
+    // Average and Fast are the original, unchanged parameter sets. Slower
+    // is a separate third branch (v1.9.0, experimental — placeholder values
+    // extending the Fast→Average step, not yet validated against real data).
+    const settings = (currentMode === 'fast')
         ? { fatMult: 6, speedMult: 5, basePre: 0.88, prePenalty: 0.02 }
-        : { fatMult: 13, speedMult: 9, basePre: 0.95, prePenalty: 0.038 };
+        : (currentMode === 'slower')
+            ? { fatMult: 16, speedMult: 11, basePre: 0.95, prePenalty: 0.045 }
+            : { fatMult: 13, speedMult: 9, basePre: 0.95, prePenalty: 0.038 };
 
     let pre_ratio = settings.basePre - (parseInt(inputs.fatLoad.value) + parseInt(inputs.proteinSpeed.value)) * settings.prePenalty;
     pre_ratio = Math.max(min_pre, Math.min(0.96, pre_ratio));
@@ -1824,7 +1972,10 @@ function calc() {
         // of one, and push the window out further, since high-fat/high-carb
         // meals keep releasing glucose well past what the base sliders assume.
         let stage1Min = Math.round(baseDelayMin * 0.65);
-        let stage2Min = Math.round(baseDelayMin * 1.5);
+        // Ceiling of 6 h on the second checkpoint. Average + Pizza tops out
+        // at 5 h 30 min, so this never alters Average or Fast results; it
+        // only trims the far corner of Slower + Pizza at maxed sliders.
+        let stage2Min = Math.min(Math.round(baseDelayMin * 1.5), 360);
 
         let later1 = Math.round((laterTotal * 0.55) / 4) * 4;
         let later2 = Math.max(0, laterTotal - later1);
