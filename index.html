@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.7.0 (Sep 2026)
+  Version: 1.8.0 (Nov 2026)
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,7 +30,8 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.7.0"
+  version: "1.8.0",
+  build: "2026-11-01"
 };
 </script>
  
@@ -659,7 +660,7 @@ input[type=number] {
     <!-- ================= MAIN APP UI ================= -->
   <div class="container">
     <h1>InhaleToEat 🥩💨</h1>
-    <p class="subtitle">Afrezza dosing • Apr 10 2026</p>
+    <p class="subtitle">Afrezza dosing • v<span id="app-version-top"></span></p>
 
     <div class="profile-bar">
         <select id="profileSelect"></select>
@@ -902,7 +903,7 @@ input[type=number] {
                 <details id="tut-meallog" class="tut-section">
                     <summary>Meal Log, Outcomes & the Printed Report</summary>
                     <div class="tutorial-text">
-                        Nothing is saved automatically — tap <strong>💾 Save this meal</strong> only for the meals you actually want a record of. Each profile keeps its 15 most recent saved meals; once you hit 15, the oldest one drops off to make room for the next.<br><br>
+                        Nothing is saved automatically — tap <strong>💾 Save this meal</strong> only for the meals you actually want a record of. Each profile keeps its 120 most recent saved meals; once you hit 120, the oldest one drops off to make room for the next.<br><br>
 
                         Once you know how a saved meal turned out, open <strong>📋 Meal Log</strong> and tag it <strong>Low</strong>, <strong>On target</strong>, or <strong>High</strong>. That's for you and your provider to read patterns from — the app never scores, calculates, or suggests a change based on these tags. Tapped the wrong tag, or logged a duplicate by mistake? Tap 🗑 Delete on that entry to remove it.<br><br>
 
@@ -977,7 +978,7 @@ input[type=number] {
 			<h2>Meal Log</h2>
 			<button class="tutorial-btn" id="printReportBtn" style="margin-bottom:10px;">🖨️ Print / export report</button>
 			<p style="color:var(--muted);margin-bottom:10px;">
-      Last 15 saved meals for this profile. Tap a meal's outcome once you know how it went.
+      Last 120 saved meals for this profile. Tap a meal's outcome once you know how it went.
       <span class="info-link" data-tut="tut-meallog">ℹ️ How does this work?</span>
 			</p>
 			<div id="mealLogList"></div>
@@ -992,7 +993,7 @@ input[type=number] {
 const G_PER_OZ = 28.3495;
 const DEFAULT_FOOD_PRESETS = { S: 100, M: 200, L: 300 };
 const MAX_PROFILES = 6;
-const MEAL_LOG_CAP = 15;
+const MEAL_LOG_CAP = 120; // was 15 — raised for multi-week workshop cohorts (~3 meals/day × 5 weeks, with buffer)
 const PROFILES_KEY = 'itk_profiles';
 const ACTIVE_PROFILE_KEY = 'itk_activeProfile';
 
@@ -1952,10 +1953,21 @@ if (window.matchMedia('(display-mode: standalone)').matches
   document.getElementById("app-version").textContent =
     window.APP_META.version;
 
+  // app-version-top: a second, visible-without-scrolling copy right under
+  // the title, specifically for a cohort/workshop setting — "everyone
+  // look at the top of your screen, what version do you see?" shouldn't
+  // require scrolling to the footer first.
+  const topVersion = document.getElementById("app-version-top");
+  if (topVersion) topVersion.textContent = window.APP_META.version;
+
+  // build-id: a static value baked into APP_META at ship time, NOT a
+  // live timestamp — this used to be `new Date()` at page-load, which
+  // meant two people on the identical file would see different "build"
+  // values just because they opened the app at different times. Useless
+  // for a cohort comparing builds, so it's now tied to the file content.
   const build = document.getElementById("build-id");
   if (build) {
-    build.textContent =
-      new Date().toISOString().slice(0,16).replace("T"," ");
+    build.textContent = window.APP_META.build || "";
   }
 </script>
   
