@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.9.0 (Nov 2026)
+  Version: 1.10.0 (Nov 2026)
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,8 +30,8 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.9.0",
-  build: "2026-11-01"
+  version: "1.10.0",
+  build: "2026-11-04"
 };
 </script>
  
@@ -519,8 +519,12 @@ input[type=number] {
 }
 .profile-row span.name {
   flex: 1;
+  min-width: 0;
   font-size: 1.2em;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .profile-row input.rename-input {
   flex: 1;
@@ -935,6 +939,20 @@ input[type=number] {
                     </div>
                 </details>
 
+                <details id="tut-backup" class="tut-section">
+                    <summary>Backing Up & Sharing Your Profile</summary>
+                    <div class="tutorial-text">
+                        Everything in this app lives in your browser, on this device. Clearing browser data, switching phones, or reinstalling can erase it — so it's worth saving a copy now and then.<br><br>
+
+                        <strong>Export:</strong> open <strong>Manage profiles</strong> and tap ⬇️ next to a profile. It saves one small file with that profile's settings and its saved meals. Keep it as a backup, or send it to your workshop facilitator or care team if you choose to share it.<br><br>
+
+                        <strong>Import:</strong> in the same screen, tap <strong>Import profile file</strong> and pick a file. You choose whether to add it as a new profile or merge its meals into one you already have. Meals that are already there are never duplicated, and your existing settings stay untouched unless you tick the box to replace them.<br><br>
+
+                        • The file contains health information — your dosing settings and meal history. Share it only with people you trust.<br>
+                        • Files are checked when you import them. Anything that doesn't look like an InhaleToEat profile file is rejected without changing your data.
+                    </div>
+                </details>
+
             </div>
         </div>
     </div>
@@ -974,10 +992,21 @@ input[type=number] {
 			</p>
 			<div id="profileList"></div>
 			<div class="row" style="margin-top:20px;">
-				<input type="text" id="newProfileName" placeholder="New profile name" style="flex:1;font-size:1.2em;padding:10px;border-radius:8px;border:none;">
+				<input type="text" id="newProfileName" maxlength="40" placeholder="New profile name" style="flex:1;font-size:1.2em;padding:10px;border-radius:8px;border:none;">
 				<button id="addProfileBtn" class="mode-btn" style="flex:0;">Add</button>
 			</div>
 			<p id="profileLimitMsg" style="color:var(--warn);display:none;margin-top:10px;">Maximum of 6 profiles reached on this device. Delete one to add another.</p>
+
+			<hr style="border:none;border-top:1px solid var(--track-border);margin:20px 0 14px;">
+			<h3 style="margin:0 0 6px;">Back up &amp; share</h3>
+			<p style="color:var(--muted);margin-bottom:10px;">
+      Tap ⬇️ next to a profile to save it as a file (settings + saved meals). Import brings a file back in, as a new profile or merged into one you have. Files contain health information — share them only with people you trust.
+      <span class="info-link" data-tut="tut-backup">ℹ️ How does this work?</span>
+			</p>
+			<button id="importProfileBtn" class="tutorial-btn" style="margin:0;">📥 Import profile file</button>
+			<input type="file" id="importFileInput" accept=".json,application/json" style="display:none;">
+			<p id="importMsg" style="display:none;margin-top:10px;"></p>
+			<div id="importPanel" style="display:none;margin-top:10px;"></div>
 		</div>
 	</div> <!-- closes #profile-modal -->
 
@@ -1481,7 +1510,7 @@ function generateReport() {
 
     if (log.length === 0) {
         container.innerHTML = `<h2>InhaleToEat — Meal Report</h2>
-            <p class="report-meta">Profile: ${profile.name} &nbsp;|&nbsp; Generated: ${generatedStr}</p>
+            <p class="report-meta">Profile: ${escapeHtml(profile.name)} &nbsp;|&nbsp; Generated: ${generatedStr}</p>
             <p>No meals logged yet for this profile.</p>`;
         return;
     }
@@ -1546,7 +1575,7 @@ function generateReport() {
     }).join('');
 
     container.innerHTML = `<h2>InhaleToEat — Meal Report</h2>
-        <p class="report-meta">Profile: ${profile.name} &nbsp;|&nbsp; ${log.length} meal${log.length === 1 ? '' : 's'} &nbsp;|&nbsp; Generated: ${generatedStr}</p>
+        <p class="report-meta">Profile: ${escapeHtml(profile.name)} &nbsp;|&nbsp; ${log.length} meal${log.length === 1 ? '' : 's'} &nbsp;|&nbsp; Generated: ${generatedStr}</p>
         ${targetRangeHtml}
         ${digestionHtml}
         <table>
@@ -1715,6 +1744,15 @@ function renderProfileList() {
         nameSpan.onclick = () => startRename(pid, row, nameSpan);
         row.appendChild(nameSpan);
 
+        const expBtn = document.createElement('button');
+        expBtn.textContent = '⬇️';
+        expBtn.className = 'tutorial-btn';
+        expBtn.style.margin = '0';
+        expBtn.title = 'Export this profile to a file';
+        expBtn.setAttribute('aria-label', `Export ${p.name} to a file`);
+        expBtn.onclick = () => exportProfile(pid);
+        row.appendChild(expBtn);
+
         const delBtn = document.createElement('button');
         delBtn.textContent = '🗑';
         delBtn.className = 'tutorial-btn';
@@ -1829,6 +1867,368 @@ document.getElementById('addProfileBtn').onclick = () => {
     renderProfileList();
     renderProfileSelect();
 };
+
+// --- 5g. PROFILE EXPORT / IMPORT ---
+// A profile (settings + meal log) can be saved to a small JSON file and
+// brought back in — as a backup, to move between devices, or to send to a
+// workshop facilitator. Import is deliberately strict: the file is rebuilt
+// field by field into a clean object (nothing from the file is trusted or
+// copied wholesale), anything malformed is rejected before it can touch
+// stored data, and dosing-relevant settings (ACR, PF, mode, unit, weight,
+// presets) are rejected outright rather than silently defaulted. Dose text
+// is restricted to the characters the app itself produces, because meal-log
+// text is later rendered as HTML.
+const EXPORT_APP_ID = 'InhaleToEat';
+const EXPORT_SCHEMA_VERSION = 1;
+const IMPORT_MAX_BYTES = 1500000;
+const IMPORT_MAX_ENTRIES = 2000;
+const IMPORT_MODES = ['slower', 'average', 'fast'];
+const IMPORT_TRENDS = ['rising', 'flat', 'falling'];
+const IMPORT_OUTCOMES = ['pending', 'Low', 'On target', 'High'];
+const DOSE_TEXT_RE = /^[A-Za-z0-9 :().,+\-]{0,80}$/;
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function buildExportData(p) {
+    return {
+        app: EXPORT_APP_ID,
+        schemaVersion: EXPORT_SCHEMA_VERSION,
+        appVersion: (window.APP_META && window.APP_META.version) || '',
+        exportedAt: new Date().toISOString(),
+        profile: {
+            name: p.name,
+            acr: p.acr,
+            pf: p.pf,
+            basalDose: p.basalDose || '',
+            targetLow: p.targetLow || '',
+            targetHigh: p.targetHigh || '',
+            targetRangeUpdatedAt: p.targetRangeUpdatedAt || null,
+            unit: p.unit,
+            mode: p.mode,
+            weightGrams: p.weightGrams,
+            foodPresets: p.foodPresets || { ...DEFAULT_FOOD_PRESETS },
+            mealLog: p.mealLog || []
+        }
+    };
+}
+
+function exportProfile(pid) {
+    const { profiles } = getActiveProfile();
+    const p = profiles[pid];
+    if (!p) return;
+    const data = buildExportData(p);
+    const safeName = String(p.name).replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 30) || 'profile';
+    const d = new Date();
+    const ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `InhaleToEat_${safeName}_${ymd}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// number in [min,max] or null (strings accepted only if fully numeric)
+function importNum(v, min, max) {
+    let n = NaN;
+    if (typeof v === 'number') n = v;
+    else if (typeof v === 'string' && v.trim() !== '') n = Number(v);
+    return (Number.isFinite(n) && n >= min && n <= max) ? n : null;
+}
+
+// '' stays '', a valid number becomes its string form, anything else is null (invalid)
+function importOptNumStr(v, min, max) {
+    if (v === undefined || v === null || v === '') return '';
+    const n = importNum(v, min, max);
+    return n === null ? null : String(n);
+}
+
+// One meal-log entry rebuilt from scratch; null if it can't be trusted.
+function sanitizeImportedMeal(e) {
+    if (!e || typeof e !== 'object') return null;
+    const ts = importNum(e.timestamp, 946684800000, 4102444800000); // years 2000–2100
+    const carbs = importNum(e.carbs, 0, 1000);
+    const wg = importNum(e.weightGrams, 0, 5000);
+    const sp = importNum(e.proteinSpeed, 0, 10);
+    const fat = importNum(e.fatLoad, 0, 10);
+    if (ts === null || carbs === null || wg === null || sp === null || fat === null) return null;
+    if (e.unit !== 'g' && e.unit !== 'oz') return null;
+
+    const acrUsed = importOptNumStr(e.acrUsed, 1, 500);
+    const pfUsed = importOptNumStr(e.pfUsed, 0, 100);
+    const basalUsed = importOptNumStr(e.basalUsed, 0, 500);
+    const resistanceUsed = importOptNumStr(e.resistanceUsed, -100, 100);
+    const bgUsed = importOptNumStr(e.bgUsed, 0, 1000);
+    if ([acrUsed, pfUsed, basalUsed, resistanceUsed, bgUsed].some(v => v === null)) return null;
+
+    const texts = [e.doseNowText, e.doseLaterText, e.doseLater2Text].map(t => (t === undefined || t === null) ? '' : t);
+    if (!texts.every(t => typeof t === 'string' && DOSE_TEXT_RE.test(t))) return null;
+
+    const clean = {
+        timestamp: ts,
+        carbs: carbs,
+        weightGrams: Math.round(wg),
+        unit: e.unit,
+        proteinSpeed: Math.round(sp),
+        fatLoad: Math.round(fat),
+        pizzaMode: e.pizzaMode === true,
+        acrUsed, pfUsed, basalUsed, resistanceUsed, bgUsed,
+        trendUsed: IMPORT_TRENDS.includes(e.trendUsed) ? e.trendUsed : '',
+        bgFlagged: e.bgFlagged === true,
+        doseNowText: texts[0],
+        doseLaterText: texts[1],
+        doseLater2Text: texts[2],
+        outcome: IMPORT_OUTCOMES.includes(e.outcome) ? e.outcome : 'pending'
+    };
+    if (IMPORT_MODES.includes(e.digestionUsed)) clean.digestionUsed = e.digestionUsed;
+    return clean;
+}
+
+// Returns { profile, skipped } (profile = clean, safe object) or throws an
+// Error whose message is suitable to show the person directly.
+function parseImportFile(text) {
+    if (typeof text !== 'string' || text.length > IMPORT_MAX_BYTES) {
+        throw new Error('That file is too large to be an InhaleToEat profile.');
+    }
+    let data;
+    try { data = JSON.parse(text); } catch (err) { throw new Error("That file isn't valid JSON."); }
+    if (!data || typeof data !== 'object' || data.app !== EXPORT_APP_ID || !data.profile || typeof data.profile !== 'object') {
+        throw new Error("That doesn't look like an InhaleToEat profile file.");
+    }
+    if (typeof data.schemaVersion !== 'number' || data.schemaVersion < 1) {
+        throw new Error("That doesn't look like an InhaleToEat profile file.");
+    }
+    if (data.schemaVersion > EXPORT_SCHEMA_VERSION) {
+        throw new Error('This file was made by a newer version of InhaleToEat. Update the app (reload it) and try again.');
+    }
+
+    const p = data.profile;
+    const acr = importNum(p.acr, 1, 500);
+    if (acr === null) throw new Error("The file's ACR value is missing or out of range.");
+    const pf = importNum(p.pf, 0, 100);
+    if (pf === null) throw new Error("The file's protein factor is missing or out of range.");
+    if (!IMPORT_MODES.includes(p.mode)) throw new Error("The file's digestion mode isn't recognized.");
+    if (p.unit !== 'g' && p.unit !== 'oz') throw new Error("The file's protein unit isn't recognized.");
+    const weightGrams = importNum(p.weightGrams, 0, 5000);
+    if (weightGrams === null) throw new Error("The file's protein portion is missing or out of range.");
+    const fp = p.foodPresets;
+    const S = fp && importNum(fp.S, 1, 5000), M = fp && importNum(fp.M, 1, 5000), L = fp && importNum(fp.L, 1, 5000);
+    if (!fp || S === null || M === null || L === null) throw new Error("The file's portion presets are missing or out of range.");
+
+    const rawLog = Array.isArray(p.mealLog) ? p.mealLog : [];
+    if (rawLog.length > IMPORT_MAX_ENTRIES) throw new Error('That file has too many meal entries to be an InhaleToEat profile.');
+    const seen = new Set();
+    const mealLog = [];
+    let skipped = 0;
+    rawLog.forEach(entry => {
+        const clean = sanitizeImportedMeal(entry);
+        if (!clean || seen.has(clean.timestamp)) { skipped++; return; }
+        seen.add(clean.timestamp);
+        mealLog.push(clean);
+    });
+    mealLog.sort((a, b) => a.timestamp - b.timestamp);
+
+    const name = String(p.name === undefined || p.name === null ? '' : p.name)
+        .replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 40) || 'Imported';
+    const tl = importOptNumStr(p.targetLow, 20, 600);
+    const th = importOptNumStr(p.targetHigh, 20, 600);
+    const tru = importNum(p.targetRangeUpdatedAt, 946684800000, 4102444800000);
+
+    return {
+        profile: {
+            name,
+            acr: String(acr),
+            pf: String(pf),
+            basalDose: importOptNumStr(p.basalDose, 0, 500) || '',
+            targetLow: tl === null ? '' : tl,
+            targetHigh: th === null ? '' : th,
+            targetRangeUpdatedAt: tru,
+            unit: p.unit,
+            mode: p.mode,
+            weightGrams,
+            foodPresets: { S, M, L },
+            mealLog
+        },
+        skipped
+    };
+}
+
+// Applies an already-validated import. targetId is 'new' or an existing
+// profile id. Merging adds only meals whose timestamp isn't already there
+// (so re-importing never duplicates), keeps the log chronological, and
+// trims to MEAL_LOG_CAP like normal saving does. Existing settings are
+// left alone unless replaceSettings is true.
+function commitImport(clean, targetId, replaceSettings) {
+    const { id: activeId, profiles } = getActiveProfile();
+    const settings = {
+        acr: clean.acr, pf: clean.pf, basalDose: clean.basalDose,
+        targetLow: clean.targetLow, targetHigh: clean.targetHigh,
+        targetRangeUpdatedAt: clean.targetRangeUpdatedAt,
+        unit: clean.unit, mode: clean.mode, weightGrams: clean.weightGrams,
+        foodPresets: { ...clean.foodPresets }
+    };
+    const safeSave = () => {
+        try { saveProfiles(profiles); }
+        catch (err) { throw new Error("Couldn't save — this browser is out of storage space for the app."); }
+    };
+
+    if (targetId === 'new') {
+        if (Object.keys(profiles).length >= MAX_PROFILES) {
+            throw new Error(`You already have ${MAX_PROFILES} profiles. Delete one first, or merge into an existing profile.`);
+        }
+        let newId = 'p_' + Date.now();
+        while (profiles[newId]) newId += 'x';
+        const taken = new Set(Object.values(profiles).map(x => String(x.name).toLowerCase()));
+        let name = clean.name, n = 2;
+        while (taken.has(name.toLowerCase())) name = `${clean.name} (${n++})`;
+        profiles[newId] = { name, ...settings, mealLog: clean.mealLog.slice(-MEAL_LOG_CAP) };
+        safeSave();
+        setActiveProfileId(newId);
+        loadSavedSettings();
+        updateProteinDisplay();
+        const kept = profiles[newId].mealLog.length;
+        return `Imported as a new profile “${name}” — ${kept} meal${kept === 1 ? '' : 's'}.`;
+    }
+
+    const target = profiles[targetId];
+    if (!target) throw new Error("That profile no longer exists.");
+    const existing = Array.isArray(target.mealLog) ? target.mealLog : [];
+    const have = new Set(existing.map(e => e.timestamp));
+    const fresh = clean.mealLog.filter(e => !have.has(e.timestamp));
+    let merged = existing.concat(fresh).sort((a, b) => a.timestamp - b.timestamp);
+    if (merged.length > MEAL_LOG_CAP) merged = merged.slice(-MEAL_LOG_CAP);
+    const mergedTs = new Set(merged.map(e => e.timestamp));
+    const added = fresh.filter(e => mergedTs.has(e.timestamp)).length;
+    const already = clean.mealLog.length - fresh.length;
+    target.mealLog = merged;
+    if (replaceSettings) Object.assign(target, settings);
+    safeSave();
+    if (replaceSettings && targetId === activeId) {
+        loadSavedSettings();
+        updateProteinDisplay();
+    }
+    let msg = `Merged into “${target.name}” — ${added} meal${added === 1 ? '' : 's'} added`;
+    if (already > 0) msg += `, ${already} already there`;
+    msg += replaceSettings ? '. Settings replaced.' : '. Settings unchanged.';
+    return msg;
+}
+
+function setImportMsg(text, kind) {
+    const el = document.getElementById('importMsg');
+    if (!text) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.textContent = text;
+    el.style.color = kind === 'error' ? 'var(--warn)' : '';
+    el.style.display = 'block';
+}
+
+function clearImportPanel() {
+    const panel = document.getElementById('importPanel');
+    panel.innerHTML = '';
+    panel.style.display = 'none';
+}
+
+function showImportPanel(clean, skipped) {
+    const panel = document.getElementById('importPanel');
+    panel.innerHTML = '';
+    panel.style.display = 'block';
+
+    const { profiles } = getActiveProfile();
+    const ids = Object.keys(profiles);
+    const atCap = ids.length >= MAX_PROFILES;
+    const meals = clean.mealLog;
+    let range = '';
+    if (meals.length) {
+        const f = t => new Date(t).toLocaleDateString();
+        range = ` (${f(meals[0].timestamp)} – ${f(meals[meals.length - 1].timestamp)})`;
+    }
+    const info = document.createElement('div');
+    info.style.marginBottom = '8px';
+    info.textContent = `“${clean.name}” — ${meals.length} saved meal${meals.length === 1 ? '' : 's'}${range}`
+        + (skipped ? ` · ${skipped} unreadable or duplicate entr${skipped === 1 ? 'y' : 'ies'} will be skipped` : '');
+    panel.appendChild(info);
+
+    const sel = document.createElement('select');
+    sel.setAttribute('aria-label', 'Where to import this profile');
+    sel.style.cssText = 'width:100%;font-size:1.1em;padding:8px;border-radius:8px;';
+    const optNew = new Option(atCap ? `Add as a new profile (limit of ${MAX_PROFILES} reached)` : 'Add as a new profile', 'new');
+    optNew.disabled = atCap;
+    sel.appendChild(optNew);
+    ids.forEach(pid => sel.appendChild(new Option(`Merge meals into “${profiles[pid].name}”`, pid)));
+    const sameName = ids.find(pid => String(profiles[pid].name).toLowerCase() === clean.name.toLowerCase());
+    sel.value = sameName || (atCap ? ids[0] : 'new');
+    panel.appendChild(sel);
+
+    const replRow = document.createElement('label');
+    replRow.style.cssText = 'display:none;margin:8px 0;color:var(--warn);';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    replRow.appendChild(cb);
+    replRow.appendChild(document.createTextNode(" Also replace this profile's settings (ACR, protein factor, mode, target range, presets) with the file's"));
+    panel.appendChild(replRow);
+    const sync = () => { replRow.style.display = sel.value === 'new' ? 'none' : 'block'; };
+    sel.onchange = sync;
+    sync();
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;margin-top:10px;';
+    const go = document.createElement('button');
+    go.textContent = 'Import';
+    go.className = 'mode-btn';
+    go.style.margin = '0';
+    go.onclick = () => {
+        try {
+            const msg = commitImport(clean, sel.value, sel.value !== 'new' && cb.checked);
+            clearImportPanel();
+            setImportMsg(msg, 'ok');
+            renderProfileList();
+            renderProfileSelect();
+        } catch (err) {
+            setImportMsg(err.message || 'Import failed.', 'error');
+        }
+    };
+    const cancel = document.createElement('button');
+    cancel.textContent = 'Cancel';
+    cancel.className = 'tutorial-btn';
+    cancel.style.margin = '0';
+    cancel.onclick = () => { clearImportPanel(); setImportMsg(''); };
+    btnRow.appendChild(go);
+    btnRow.appendChild(cancel);
+    panel.appendChild(btnRow);
+}
+
+document.getElementById('importProfileBtn').onclick = () => {
+    setImportMsg('');
+    clearImportPanel();
+    document.getElementById('importFileInput').click();
+};
+
+document.getElementById('importFileInput').addEventListener('change', function() {
+    const file = this.files && this.files[0];
+    this.value = '';
+    if (!file) return;
+    if (file.size > IMPORT_MAX_BYTES) {
+        setImportMsg('That file is too large to be an InhaleToEat profile.', 'error');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const { profile, skipped } = parseImportFile(String(reader.result));
+            setImportMsg('');
+            showImportPanel(profile, skipped);
+        } catch (err) {
+            clearImportPanel();
+            setImportMsg(err.message, 'error');
+        }
+    };
+    reader.onerror = () => setImportMsg("Couldn't read that file.", 'error');
+    reader.readAsText(file);
+});
 
 // --- 5f. CARTRIDGE RESOLVER ---
 // Afrezza cartridges really do come in exactly 4/8/12-unit sizes,
