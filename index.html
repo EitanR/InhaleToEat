@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.10.0 (Nov 2026)
+  Version: 1.11.0 (Nov 2026)
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,8 +30,8 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.10.0",
-  build: "2026-11-04"
+  version: "1.11.0",
+  build: "2026-11-10"
 };
 </script>
  
@@ -153,6 +153,18 @@ body {
         .mode-btn {font-size:1.2em;padding:10px 16px;background:var(--track);color:var(--ink);border:2px solid var(--track-border);border-radius:12px;cursor:pointer;flex:1;margin:5px;}
         .mode-btn.active {background:var(--ink);color:var(--on-now);border-color:var(--ink);}
         .mode-btn:active {transform:scale(0.98);}
+        /* Optional per-meal context (tags + note) in the Meal Log. Chips are
+           toggle buttons: 44px+ touch targets, and the pressed state carries
+           a ✓ in the label so it never depends on color alone. */
+        .detail-chip {font-size:1em;padding:10px 8px;min-height:44px;margin:0;background:var(--track);color:var(--ink);border:2px solid var(--track-border);border-radius:12px;cursor:pointer;text-align:center;line-height:1.2;}
+        .detail-chip[aria-pressed="true"] {background:var(--ink);color:var(--on-now);border-color:var(--ink);font-weight:bold;}
+        .detail-chip:active {transform:scale(0.98);}
+        .detail-panel {border:2px solid var(--track-border);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;}
+        .detail-chips {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+        .detail-note {width:100%;box-sizing:border-box;font-size:1.1em;padding:10px;border-radius:8px;border:2px solid var(--track-border);background:var(--panel-deep);color:var(--ink);}
+        .detail-status {color:var(--muted);font-size:0.9em;min-height:1.2em;}
+        .entry-context {color:var(--muted);font-size:0.95em;}
+        .cgm-note {display:none;text-align:center;color:var(--muted);font-size:1em;margin:4px 0 8px;}
         .mode-desc {font-size:0.9em;color:var(--muted);margin-top:5px;text-align:center;}
         .slider-label {font-size:1.6em;margin:20px 0 10px;text-align:center;}
 		.slider-container {
@@ -567,6 +579,12 @@ input[type=number] {
     overflow-wrap: break-word;
   }
   #printReport th { background: #eee; }
+  /* Optional per-meal context sits in its own full-width row directly under
+     the meal, so the column widths above (and the overflow fix they
+     provide) are unaffected. */
+  #printReport tr.meal-row.has-notes td { border-bottom: none; }
+  #printReport tr.notes-row td { border-top: none; font-size: 0.9em; color: #333; padding-top: 0; }
+  #printReport .report-foot { color: #444; font-size: 0.9em; margin-top: 10px; }
   #printReport col.col-datetime { width: 10%; }
   #printReport col.col-carbs { width: 5%; }
   #printReport col.col-protein { width: 7%; }
@@ -811,6 +829,7 @@ input[type=number] {
             <span id="delayed2Text"></span>
             <div class="cart-row" id="delayed2Carts"></div>
         </div>
+        <p class="cgm-note" id="cgmNote">Check your CGM before taking this.</p>
         <p style="text-align:center;margin-top:2px;"><span class="info-link" data-tut="tut-cartridges">ℹ️ What do these chips mean?</span></p>
 
         <div class="row" style="justify-content:center; margin-top:10px;">
@@ -877,14 +896,15 @@ input[type=number] {
 
                         <strong>Average Digester</strong> — standard timing. Start here. It's the right default for most people, including anyone new to Afrezza.<br><br>
 
-                        <strong>Faster Digester ⚡</strong> — quicker, less delay. Shifts more of the dose upfront and shortens the gap before any follow-up dose. This fits people whose CGM shows an early spike followed by a crash if they wait for the app's normal delayed-dose timing — i.e., their own gut empties faster than the average assumption.<br><br>
+                        <strong>Faster Digester ⚡</strong> — quicker, less delay. Shortens the wait before any follow-up dose (and, at low Protein Speed / Fat Load settings, puts a little more of the dose upfront). This fits people whose CGM shows an early spike followed by a crash if they wait for the app's normal delayed-dose timing — i.e., their own gut empties faster than the average assumption.<br><br>
 
-                        <strong>Slower Digester 🐢 (experimental)</strong> — longer delay before the follow-up dose, and a little more of the dose held back for later. This fits people whose glucose rise from protein and fat consistently arrives late: slower gastric emptying, GLP-1 medications (Ozempic, Mounjaro and similar), or just a naturally slow gut. The Slower timings are a first estimate and haven't been validated against lots of real-world data yet, so treat them as a starting point and watch your own CGM.<br><br>
+                        <strong>Slower Digester 🐢 (experimental)</strong> — a longer wait before the follow-up dose. This fits people whose glucose rise from protein and fat consistently arrives late: slower gastric emptying, GLP-1 medications (Ozempic, Mounjaro and similar), or just a naturally slow gut. The Slower timings are a first estimate and haven't been validated against lots of real-world data yet, so treat them as a starting point and watch your own CGM.<br><br>
 
                         • Don't guess at this one — move off Average only after you've seen a consistent pattern over a few meals, not just one. For Faster, that's an early spike then a crash; for Slower, a rise that keeps showing up well after the follow-up dose has already worn off.<br>
                         • Your digestion can change over time — starting or stopping a GLP-1 medication, weight loss, surgery, illness. Revisit this setting when something like that happens. Meals you save record the mode in use, so a change shows up in your report.<br>
                         • Slower is not the same as Pizza Mode. Digestion Mode is about <em>you</em> (a standing trait); Pizza Mode is about <em>this meal</em> (high-fat, high-carb, extended). They can be combined, and the second Pizza checkpoint never goes beyond 6 hours.<br>
-                        • Don't use the Fat Load slider to imitate a slow gut — it describes the food, and Slower exists so you don't have to.
+                        • Don't use the Fat Load slider to imitate a slow gut — it describes the food, and Slower exists so you don't have to.<br>
+                        • At typical slider settings, how the dose is split between NOW and the follow-up is the same in all three modes — the app always keeps a minimum share of the dose upfront as a safety margin. So the biggest difference you'll notice between modes is how long the app waits before the follow-up.
                     </div>
                 </details>
 
@@ -907,7 +927,9 @@ input[type=number] {
                     <div class="tutorial-text">
                         Every dose is shown as real Afrezza cartridge colors, not just a number — 4u is <strong>blue</strong>, 8u is <strong>green</strong>, 12u is <strong>yellow</strong>, matching the actual cartridges in your hand. The unit number is always printed on the chip too, since color alone isn't reliable to sort out under poor lighting.<br><br>
 
-                        Doses are always built from the fewest cartridges possible — largest sizes first — so a 16u dose shows as one yellow (12) + one blue (4), never four blues. If a single dose ever needs more than six cartridges of the same size, the chips collapse into one chip marked "×N" instead of drawing that many individually, just to keep the display readable.
+                        Doses are always built from the fewest cartridges possible — largest sizes first — so a 16u dose shows as one yellow (12) + one blue (4), never four blues. If a single dose ever needs more than six cartridges of the same size, the chips collapse into one chip marked "×N" instead of drawing that many individually, just to keep the display readable.<br><br>
+
+                        <strong>A follow-up is a plan, not an order.</strong> The dose under NOW is what the app suggests right now. A follow-up dose is a plan for later, which is why the app prints "Check your CGM before taking this" beneath it. When the time comes, look at your CGM first: extra activity, a meal that digested faster than expected, or glucose that is already low or dropping are all things the app can't see. Whether to take it is your call, made with your CGM and your care team's guidance. If you skip or delay one, tag it in the Meal Log (Details → Follow-up skipped / late) so you and your provider can see the pattern.
                     </div>
                 </details>
 
@@ -917,6 +939,8 @@ input[type=number] {
                         Nothing is saved automatically — tap <strong>💾 Save this meal</strong> only for the meals you actually want a record of. Each profile keeps its 120 most recent saved meals; once you hit 120, the oldest one drops off to make room for the next.<br><br>
 
                         Once you know how a saved meal turned out, open <strong>📋 Meal Log</strong> and tag it <strong>Low</strong>, <strong>On target</strong>, or <strong>High</strong>. That's for you and your provider to read patterns from — the app never scores, calculates, or suggests a change based on these tags. Tapped the wrong tag, or logged a duplicate by mistake? Tap 🗑 Delete on that entry to remove it.<br><br>
+
+                        <strong>Details (optional):</strong> when you tap an outcome, a small Details panel opens under that meal. Tap any chips that apply — <em>dose differed, portion differed, follow-up skipped, follow-up late, activity, treated a low</em> — and/or add a short note (up to 100 characters). Everything saves as you go, and you can ignore the panel entirely. A bare "High" or "Low" doesn't say why; these show you and your provider what was going on, so patterns are easier to spot. They appear in the copied summary and the printed report, and the app never scores or interprets them.<br><br>
 
                         <strong>Copy last 10 meals:</strong> one tap copies a short, one-line-per-meal text summary of your 10 most recent saved meals (newest first) to your clipboard — ready to paste into a Zoom chat, message, or email when you want a quick opinion. Your ACR and Protein Factor appear once at the top when they were the same for all 10; if they changed, they show on each line instead. The full printable report below is unchanged and still has everything.<br><br>
 
@@ -1387,6 +1411,161 @@ function formatProteinSource(entry) {
     return `${entry.weightGrams} g`;
 }
 
+// --- Meal context: optional tags + a short note on each saved meal ---
+// Purely descriptive and entirely optional: a bare "High" or "Low" doesn't
+// say why, and these let the person (and a facilitator or provider) see
+// what was going on. The app never scores, weighs, or acts on them.
+const DETAIL_TAGS = [
+    { key: 'doseDiff',    chip: '💉 Dose differed',    label: 'dose differed',     title: 'I took a different dose than the app suggested' },
+    { key: 'portionDiff', chip: '🍽 Portion differed', label: 'portion differed',  title: 'I ate more or less than I entered' },
+    { key: 'fuSkipped',   chip: '⏭ Follow-up skipped', label: 'follow-up skipped', title: 'I skipped the follow-up dose because it was not needed' },
+    { key: 'fuLate',      chip: '⏱ Follow-up late',    label: 'follow-up late',    title: 'I took the follow-up dose later than suggested' },
+    { key: 'activity',    chip: '🏃 Activity',         label: 'activity',          title: 'Exercise or activity around the meal' },
+    { key: 'treatedLow',  chip: '🍬 Treated a low',    label: 'treated a low',     title: 'I treated a low or took a correction' }
+];
+const DETAIL_NOTE_MAX = 100;
+let openDetailsTs = null; // timestamp of the meal whose Details panel is open
+
+function entryTagLabels(entry) {
+    const have = new Set(Array.isArray(entry.tags) ? entry.tags : []);
+    return DETAIL_TAGS.filter(t => have.has(t.key)).map(t => t.label);
+}
+
+function entryNoteText(entry) {
+    return (typeof entry.note === 'string') ? entry.note.trim() : '';
+}
+
+function entryContextText(entry) {
+    let s = entryTagLabels(entry).join(' · ');
+    const note = entryNoteText(entry);
+    if (note) s += (s ? ' — ' : '') + `“${note}”`;
+    return s;
+}
+
+function detailsToggleLabel(entry, isOpen) {
+    const n = entryTagLabels(entry).length;
+    const hasNote = entryNoteText(entry) !== '';
+    let s = '＋ Details';
+    if (n || hasNote) {
+        s = '✎ ' + [n ? `${n} tag${n === 1 ? '' : 's'}` : '', hasNote ? 'note' : ''].filter(Boolean).join(' + ');
+    }
+    return s + (isOpen ? ' ▴' : '');
+}
+
+function tagCounts(entries) {
+    const counts = {};
+    entries.forEach(e => entryTagLabels(e).forEach(l => { counts[l] = (counts[l] || 0) + 1; }));
+    const order = DETAIL_TAGS.map(t => t.label);
+    return Object.entries(counts).sort((a, b) => (b[1] - a[1]) || (order.indexOf(a[0]) - order.indexOf(b[0])));
+}
+
+function formatTagCounts(entries) {
+    return tagCounts(entries).map(([l, n]) => `${l} ×${n}`).join(', ');
+}
+
+function updateEntryDetails(profileId, ts, mutate) {
+    const { profiles } = getActiveProfile();
+    const p = profiles[profileId];
+    const match = p && (p.mealLog || []).find(e => e.timestamp === ts);
+    if (!match) return false;
+    mutate(match);
+    saveProfiles(profiles);
+    return true;
+}
+
+// Re-render the list without losing the person's place in a long log.
+function rerenderMealLogKeepScroll(scrollToOpenPanel) {
+    const scroller = document.getElementById('mealLogList').closest('.modal-content');
+    const top = scroller ? scroller.scrollTop : 0;
+    renderMealLog();
+    if (scroller) scroller.scrollTop = top;
+    if (scrollToOpenPanel) {
+        const panel = document.querySelector('#mealLogList .detail-panel');
+        if (panel) panel.scrollIntoView({ block: 'nearest' });
+    }
+}
+
+// Chips toggle and the note saves as you type — no Save button. Everything
+// writes straight to the stored entry, looked up by timestamp.
+function buildDetailsPanel(entry, profileId, onChange) {
+    const ts = entry.timestamp;
+    const keysNow = () => DETAIL_TAGS.map(x => x.key).filter(k => on.has(k));
+    const panel = document.createElement('div');
+    panel.className = 'detail-panel';
+    panel.setAttribute('role', 'group');
+    panel.setAttribute('aria-label', 'Optional details for this meal');
+
+    const status = document.createElement('div');
+    status.className = 'detail-status';
+    status.setAttribute('aria-live', 'polite');
+    let statusTimer = null;
+    const flash = () => {
+        status.textContent = 'Saved ✓';
+        clearTimeout(statusTimer);
+        statusTimer = setTimeout(() => { status.textContent = ''; }, 1200);
+    };
+
+    const on = new Set(Array.isArray(entry.tags) ? entry.tags : []);
+    const grid = document.createElement('div');
+    grid.className = 'detail-chips';
+    DETAIL_TAGS.forEach(t => {
+        const b = document.createElement('button');
+        b.className = 'detail-chip';
+        b.title = t.title;
+        const paint = () => {
+            const pressed = on.has(t.key);
+            b.setAttribute('aria-pressed', String(pressed));
+            b.textContent = (pressed ? '✓ ' : '') + t.chip;
+        };
+        paint();
+        b.onclick = () => {
+            if (on.has(t.key)) on.delete(t.key); else on.add(t.key);
+            paint();
+            const keys = keysNow();
+            updateEntryDetails(profileId, ts, m => { if (keys.length) m.tags = keys; else delete m.tags; });
+            if (onChange) onChange(keys, lastSaved);
+            flash();
+        };
+        grid.appendChild(b);
+    });
+    panel.appendChild(grid);
+
+    const label = document.createElement('label');
+    label.style.cssText = 'color:var(--muted);font-size:0.95em;';
+    label.textContent = 'Note (optional)';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'detail-note';
+    input.maxLength = DETAIL_NOTE_MAX;
+    input.placeholder = 'e.g. rice on the side';
+    input.autocomplete = 'off';
+    input.setAttribute('enterkeyhint', 'done');
+    input.setAttribute('aria-label', 'Note for this meal (optional)');
+    input.value = (typeof entry.note === 'string') ? entry.note : '';
+    let lastSaved = input.value.trim();
+    let noteTimer = null;
+    const saveNote = () => {
+        clearTimeout(noteTimer);
+        const v = input.value.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, DETAIL_NOTE_MAX);
+        if (v === lastSaved) return;
+        lastSaved = v;
+        updateEntryDetails(profileId, ts, m => { if (v) m.note = v; else delete m.note; });
+        if (onChange) onChange(keysNow(), v);
+        flash();
+    };
+    input.addEventListener('input', () => { clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 300); });
+    input.addEventListener('blur', saveNote);
+    input.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); } });
+
+    label.appendChild(input);
+    label.style.display = 'flex';
+    label.style.flexDirection = 'column';
+    label.style.gap = '4px';
+    panel.appendChild(label);
+    panel.appendChild(status);
+    return panel;
+}
+
 function renderMealLog() {
     const { id, profiles } = getActiveProfile();
     const log = profiles[id].mealLog || [];
@@ -1429,14 +1608,37 @@ function renderMealLog() {
                 const match = (p2[id].mealLog || []).find(e => e.timestamp === entry.timestamp);
                 if (match) match.outcome = tag;
                 saveProfiles(p2);
-                renderMealLog();
+                // Reporting an outcome is the moment the person knows what
+                // happened, so open that meal's optional Details panel.
+                openDetailsTs = entry.timestamp;
+                rerenderMealLogKeepScroll(true);
             };
             tagRow.appendChild(btn);
         });
         row.appendChild(tagRow);
 
+        // Collapsed view of any context already recorded for this meal.
+        const isOpen = openDetailsTs === entry.timestamp;
+        const ctxText = entryContextText(entry);
+        if (ctxText && !isOpen) {
+            const ctx = document.createElement('div');
+            ctx.className = 'entry-context';
+            ctx.textContent = ctxText;
+            row.appendChild(ctx);
+        }
+
         const actionRow = document.createElement('div');
-        actionRow.style.cssText = 'display:flex;justify-content:flex-end;';
+        actionRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;';
+        const detailsBtn = document.createElement('button');
+        detailsBtn.className = 'tutorial-btn';
+        detailsBtn.style.margin = '0';
+        detailsBtn.setAttribute('aria-expanded', String(isOpen));
+        detailsBtn.textContent = detailsToggleLabel(entry, isOpen);
+        detailsBtn.onclick = () => {
+            openDetailsTs = isOpen ? null : entry.timestamp;
+            rerenderMealLogKeepScroll(!isOpen);
+        };
+        actionRow.appendChild(detailsBtn);
         const delBtn = document.createElement('button');
         delBtn.textContent = '🗑 Delete';
         delBtn.className = 'tutorial-btn';
@@ -1444,6 +1646,12 @@ function renderMealLog() {
         delBtn.onclick = () => confirmDeleteMeal(entry, row, id);
         actionRow.appendChild(delBtn);
         row.appendChild(actionRow);
+        if (isOpen) {
+            // Keep the toggle's label ("✎ 2 tags + note") live as chips/note change.
+            row.appendChild(buildDetailsPanel(entry, id, (tags, note) => {
+                detailsBtn.textContent = detailsToggleLabel({ tags: tags, note: note }, true);
+            }));
+        }
 
         container.appendChild(row);
     });
@@ -1486,6 +1694,7 @@ function confirmDeleteMeal(entry, row, profileId) {
 document.getElementById('saveMealBtn').onclick = saveMeal;
 
 document.getElementById('openMealLogBtn').onclick = () => {
+    openDetailsTs = null;
     renderMealLog();
     document.getElementById('meallog-modal').style.display = 'flex';
 };
@@ -1559,7 +1768,9 @@ function generateReport() {
         const bgCell = entry.bgFlagged
             ? `<span style="color:#900;font-weight:bold;">${bgCellText} 🚩</span>`
             : bgCellText;
-        return `<tr>
+        const ctxText = entryContextText(entry);
+        const hasCtx = ctxText !== '';
+        return `<tr class="meal-row${hasCtx ? ' has-notes' : ''}">
             <td>${dateStr}</td>
             <td>${entry.carbs} g</td>
             <td>${formatProteinSource(entry)}</td>
@@ -1571,8 +1782,13 @@ function generateReport() {
             <td>${bgCell}</td>
             <td>${doses}${digestionNote}</td>
             <td>${entry.outcome === 'pending' ? '—' : entry.outcome}</td>
-        </tr>`;
+        </tr>${hasCtx ? `<tr class="notes-row"><td colspan="11">Context: ${escapeHtml(ctxText)}</td></tr>` : ''}`;
     }).join('');
+
+    // Plain counts of any tags used across the meals shown — data only.
+    const tagSummary = formatTagCounts(log);
+    const footHtml = tagSummary
+        ? `<p class="report-foot">Tags across these ${log.length} meal${log.length === 1 ? '' : 's'}: ${escapeHtml(tagSummary)}</p>` : '';
 
     container.innerHTML = `<h2>InhaleToEat — Meal Report</h2>
         <p class="report-meta">Profile: ${escapeHtml(profile.name)} &nbsp;|&nbsp; ${log.length} meal${log.length === 1 ? '' : 's'} &nbsp;|&nbsp; Generated: ${generatedStr}</p>
@@ -1589,7 +1805,8 @@ function generateReport() {
                 <th>ACR used</th><th>PF used</th><th>Basal</th><th>Resistance</th><th>BG (trend)</th><th>Dose(s)</th><th>Outcome</th>
             </tr></thead>
             <tbody>${rows}</tbody>
-        </table>`;
+        </table>
+        ${footHtml}`;
 }
 
 document.getElementById('printReportBtn').onclick = () => {
@@ -1626,11 +1843,13 @@ function buildSummaryText() {
         headerBits.push(`Target ${profile.targetLow || '?'}–${profile.targetHigh || '?'}`);
     }
     const copied = new Date().toLocaleDateString();
+    const tagLine = formatTagCounts(recent);
     const lines = [
         `InhaleToEat · ${profile.name} · last ${recent.length} meal${recent.length === 1 ? '' : 's'} (newest first)`,
-        `${headerBits.join(' · ')} · copied ${copied}`,
-        ''
+        `${headerBits.join(' · ')} · copied ${copied}`
     ];
+    if (tagLine) lines.push(`Tags in these ${recent.length}: ${tagLine}`);
+    lines.push('');
 
     const trendArrow = { rising: '↗', flat: '→', falling: '↘' };
     recent.forEach((e, i) => {
@@ -1657,7 +1876,12 @@ function buildSummaryText() {
         if (e.bgUsed) {
             parts.push(`BG ${e.bgUsed}${trendArrow[e.trendUsed] ? ' ' + trendArrow[e.trendUsed] : ''}${e.bgFlagged ? ' 🚩' : ''}`);
         }
-        parts.push(`Outcome: ${(!e.outcome || e.outcome === 'pending') ? '—' : e.outcome}`);
+        let outcomePart = `Outcome: ${(!e.outcome || e.outcome === 'pending') ? '—' : e.outcome}`;
+        const tagBits = entryTagLabels(e);
+        if (tagBits.length) outcomePart += ` · ${tagBits.join(', ')}`;
+        const noteText = entryNoteText(e);
+        if (noteText) outcomePart += ` · “${noteText.length > 60 ? noteText.slice(0, 59) + '…' : noteText}”`;
+        parts.push(outcomePart);
         lines.push(`${i + 1}) ${parts.join(' · ')}`);
     });
     return lines.join('\n');
@@ -1986,6 +2210,16 @@ function sanitizeImportedMeal(e) {
         outcome: IMPORT_OUTCOMES.includes(e.outcome) ? e.outcome : 'pending'
     };
     if (IMPORT_MODES.includes(e.digestionUsed)) clean.digestionUsed = e.digestionUsed;
+    // Optional context: tags must come from the fixed list; the note is
+    // length-capped plain text (it's always escaped or set as text when shown).
+    if (Array.isArray(e.tags)) {
+        const keys = DETAIL_TAGS.map(t => t.key).filter(k => e.tags.includes(k));
+        if (keys.length) clean.tags = keys;
+    }
+    if (typeof e.note === 'string') {
+        const n = e.note.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, DETAIL_NOTE_MAX);
+        if (n) clean.note = n;
+    }
     return clean;
 }
 
@@ -2098,8 +2332,20 @@ function commitImport(clean, targetId, replaceSettings) {
     const target = profiles[targetId];
     if (!target) throw new Error("That profile no longer exists.");
     const existing = Array.isArray(target.mealLog) ? target.mealLog : [];
-    const have = new Set(existing.map(e => e.timestamp));
-    const fresh = clean.mealLog.filter(e => !have.has(e.timestamp));
+    const haveMap = new Map(existing.map(e => [e.timestamp, e]));
+    const fresh = clean.mealLog.filter(e => !haveMap.has(e.timestamp));
+    // For meals already present, fill in blanks only — an outcome, tags or
+    // note added since the last import — and never overwrite what's there.
+    let filled = 0;
+    clean.mealLog.forEach(inc => {
+        const cur = haveMap.get(inc.timestamp);
+        if (!cur) return;
+        let changed = false;
+        if ((!cur.outcome || cur.outcome === 'pending') && inc.outcome && inc.outcome !== 'pending') { cur.outcome = inc.outcome; changed = true; }
+        if ((!Array.isArray(cur.tags) || cur.tags.length === 0) && inc.tags) { cur.tags = inc.tags.slice(); changed = true; }
+        if ((!cur.note || String(cur.note).trim() === '') && inc.note) { cur.note = inc.note; changed = true; }
+        if (changed) filled++;
+    });
     let merged = existing.concat(fresh).sort((a, b) => a.timestamp - b.timestamp);
     if (merged.length > MEAL_LOG_CAP) merged = merged.slice(-MEAL_LOG_CAP);
     const mergedTs = new Set(merged.map(e => e.timestamp));
@@ -2113,7 +2359,7 @@ function commitImport(clean, targetId, replaceSettings) {
         updateProteinDisplay();
     }
     let msg = `Merged into “${target.name}” — ${added} meal${added === 1 ? '' : 's'} added`;
-    if (already > 0) msg += `, ${already} already there`;
+    if (already > 0) msg += `, ${already} already there` + (filled ? ` (${filled} updated with outcomes or notes)` : '');
     msg += replaceSettings ? '. Settings replaced.' : '. Settings unchanged.';
     return msg;
 }
@@ -2391,6 +2637,19 @@ function calc() {
     inputs.fVal.textContent = inputs.fatLoad.value;
     inputs.pfVal.textContent = protein_factor.toFixed(2);
     inputs.sensVal.textContent = adj === 1 ? 'No adjustment' : (adj > 1 ? `+${inputs.sensitivityAdjust.value}%` : `${inputs.sensitivityAdjust.value}%`);
+
+    updateFollowUpNote(); // display-only; reads what was just written above
+}
+
+// Display-only: a fixed reminder, shown only while a follow-up dose is on
+// screen. It does no calculation and changes no dose — it just reads the
+// text calc() already wrote to the page.
+function updateFollowUpNote() {
+    const el = document.getElementById('cgmNote');
+    if (!el) return;
+    const hasFollowUp = inputs.delayedText.textContent.indexOf('Then') === 0
+        || inputs.delayed2.style.display !== 'none';
+    el.style.display = hasFollowUp ? 'block' : 'none';
 }
 
 // Basal dose is purely informational — never read by calc() — so it
