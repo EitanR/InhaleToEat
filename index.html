@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   InhaleToEat - Afrezza Dosing Tool
-  Version: 1.11.0 (Nov 2026)
+  Version: 1.12.1 (Nov 2026)
   Author: Eitan Rosa
  
   Licensed under Polyform Noncommercial 1.0.0
@@ -30,8 +30,8 @@
     <script>
 window.APP_META = {
   name: "InhaleToEat",
-  version: "1.11.0",
-  build: "2026-11-10"
+  version: "1.12.1",
+  build: "2026-11-22"
 };
 </script>
  
@@ -165,6 +165,7 @@ body {
         .detail-status {color:var(--muted);font-size:0.9em;min-height:1.2em;}
         .entry-context {color:var(--muted);font-size:0.95em;}
         .cgm-note {display:none;text-align:center;color:var(--muted);font-size:1em;margin:4px 0 8px;}
+        .basal-select {font-size:1.1em;padding:10px 14px;min-height:44px;border-radius:10px;background:var(--track);color:var(--ink);border:2px solid var(--track-border);max-width:100%;}
         .mode-desc {font-size:0.9em;color:var(--muted);margin-top:5px;text-align:center;}
         .slider-label {font-size:1.6em;margin:20px 0 10px;text-align:center;}
 		.slider-container {
@@ -704,8 +705,20 @@ input[type=number] {
         </div>
 
         <div class="row">
-            <span class="label">Basal dose <span class="tooltip" data-tip="Your current daily basal/long-acting insulin dose, for your own records. Not used in any calculation here — update it whenever your regimen changes.">ℹ️</span>:</span>
+            <span class="label">Basal dose <span class="tooltip" data-tip="Your current daily basal/long-acting insulin dose, for your own records. Pump users: enter your total daily basal. Not used in any calculation here — update it whenever your regimen changes.">ℹ️</span>:</span>
             <input type="number" step="0.5" min="0" id="basalDose" value="" placeholder="optional">
+        </div>
+        <div class="mode-desc" style="margin-top:-4px;">Pump users: enter your total daily basal.</div>
+
+        <div class="row">
+            <span class="label">Basal approach <span class="tooltip" data-tip="How you cover basal alongside Afrezza, for your own and your provider's reference. Not used in any calculation here — update it whenever your regimen changes.">ℹ️</span>:</span>
+            <select id="basalType" class="basal-select" aria-label="Basal approach">
+                <option value="">Not set</option>
+                <option value="none">Afrezza only</option>
+                <option value="pump">Afrezza + pump</option>
+                <option value="long">Afrezza + long-acting</option>
+                <option value="untethered">Afrezza + pump + long-acting</option>
+            </select>
         </div>
 
         <div class="row">
@@ -714,6 +727,7 @@ input[type=number] {
             <span class="label" style="flex:0;">–</span>
             <input type="number" step="1" min="0" id="targetHigh" value="" placeholder="high" style="max-width:80px;">
         </div>
+        <div class="mode-desc" id="targetMsg" role="status" style="display:none;margin-top:-4px;">High should be above low — the BG caution flag stays off until the range is fixed.</div>
 
         <div class="row" style="flex-direction:column; width: 100%;">
             <p class="slider-label">
@@ -781,9 +795,6 @@ input[type=number] {
     <button class="preset-btn" onclick="setFoodWeightPreset('M')">Medium</button>
     <button class="preset-btn" onclick="setFoodWeightPreset('L')">Large</button>
 </div>
-    </div>
-
-    </div>
 
         <p class="slider-label">Protein speed (0=fast → 10=slow) <span class="tooltip" data-tip="Red meat = high">ℹ️</span></p>
         <div class="slider-container timing-container">
@@ -944,7 +955,7 @@ input[type=number] {
 
                         <strong>Copy last 10 meals:</strong> one tap copies a short, one-line-per-meal text summary of your 10 most recent saved meals (newest first) to your clipboard — ready to paste into a Zoom chat, message, or email when you want a quick opinion. Your ACR and Protein Factor appear once at the top when they were the same for all 10; if they changed, they show on each line instead. The full printable report below is unchanged and still has everything.<br><br>
 
-                        <strong>Printable report:</strong> one tap turns your current log into a plain black-and-white table — ready to hand to, or save as a PDF for, a healthcare provider. It includes the ACR, Protein Factor, Basal dose, and Today's Adjustment that were actually in effect for each meal, plus your set target range in the header (flagged if that range changed partway through the meals shown, so nothing is read against the wrong target by mistake).
+                        <strong>Printable report:</strong> one tap turns your current log into a plain black-and-white table — ready to hand to, or save as a PDF for, a healthcare provider. It includes the ACR, Protein Factor, Basal dose (and your Basal approach in the header, if you set one), and Today's Adjustment that were actually in effect for each meal, plus your set target range in the header (flagged if that range changed partway through the meals shown, so nothing is read against the wrong target by mistake).
                     </div>
                 </details>
 
@@ -1004,6 +1015,8 @@ input[type=number] {
 				<label>L</label>
 				<input type="number" id="presetL" step="10" min="20"> g
 			</div>
+
+			<p id="presetMsg" role="status" style="display:none;color:var(--muted);margin-top:10px;">Enter a number above 0 — the previous value was kept.</p>
 		</div>
 	</div> <!-- closes #preset-modal -->
 
@@ -1090,6 +1103,7 @@ function loadProfiles() {
                 acr: legacyACR,
                 pf: legacyPF,
                 basalDose: '',
+                basalType: '',
                 targetLow: '',
                 targetHigh: '',
                 targetRangeUpdatedAt: null,
@@ -1125,6 +1139,15 @@ function setActiveProfileId(id) {
 
 // Every settings write in the app funnels through here now, instead of
 // hitting flat localStorage keys directly, so each profile stays isolated.
+// Basal approach (profile-level, descriptive only — never read by calc()).
+// Stored keys are what exports/imports use; '' means not set.
+const BASAL_TYPE_LABELS = {
+    none: 'Afrezza only',
+    pump: 'Afrezza + pump',
+    long: 'Afrezza + long-acting',
+    untethered: 'Afrezza + pump + long-acting'
+};
+
 function updateActiveProfile(patch) {
     const { id, profiles } = getActiveProfile();
     profiles[id] = { ...profiles[id], ...patch };
@@ -1139,8 +1162,10 @@ function loadSavedSettings() {
     document.getElementById('acr').value = p.acr;
     document.getElementById('proteinFactor').value = p.pf;
     document.getElementById('basalDose').value = p.basalDose || '';
+    document.getElementById('basalType').value = BASAL_TYPE_LABELS[p.basalType] ? p.basalType : '';
     document.getElementById('targetLow').value = p.targetLow || '';
     document.getElementById('targetHigh').value = p.targetHigh || '';
+    updateTargetWarning();
 
     // A BG/trend entered for one person is meaningless — and actively
     // misleading — once you switch to another profile, so this always
@@ -1196,6 +1221,7 @@ document.getElementById('openPresetSettings').onclick = () => {
     document.getElementById('presetS').value = presetDisplayValue(foodPresets.S);
     document.getElementById('presetM').value = presetDisplayValue(foodPresets.M);
     document.getElementById('presetL').value = presetDisplayValue(foodPresets.L);
+    document.getElementById('presetMsg').style.display = 'none';
     presetModal.style.display = 'flex';
 };
 
@@ -1208,7 +1234,15 @@ function presetDisplayValue(grams) {
     const inputEl = document.getElementById(`preset${size}`);
     inputEl.addEventListener('blur', function() {
         const val = parseFloat(this.value);
-        if (isNaN(val) || val <= 0) return;
+        const msg = document.getElementById('presetMsg');
+        if (isNaN(val) || val <= 0) {
+            // Rejected: keep the stored value and say so, instead of
+            // leaving the bad text sitting in the box.
+            this.value = presetDisplayValue(foodPresets[size]);
+            msg.style.display = 'block';
+            return;
+        }
+        msg.style.display = 'none';
         const grams = (proteinUnit === 'oz') ? (val * G_PER_OZ) : val;
         foodPresets[size] = grams;
         updateActiveProfile({ foodPresets });
@@ -1745,7 +1779,8 @@ function generateReport() {
     // note when its saved mode differs from the current one (e.g. after a
     // GLP-1 start). Meals saved before v1.9.0 have no mode recorded and show nothing.
     const currentDigestion = (profile.mode === 'slower' || profile.mode === 'fast') ? profile.mode : 'average';
-    const digestionHtml = `<p class="report-meta">Digestion Mode (current): ${DIGESTION_LABELS[currentDigestion]}</p>`;
+    const digestionHtml = `<p class="report-meta">Digestion Mode (current): ${DIGESTION_LABELS[currentDigestion]}</p>`
+        + (BASAL_TYPE_LABELS[profile.basalType] ? `<p class="report-meta">Basal approach: ${BASAL_TYPE_LABELS[profile.basalType]}</p>` : '');
 
     const rows = [...log].map(entry => {
         const d = new Date(entry.timestamp);
@@ -1837,6 +1872,7 @@ function buildSummaryText() {
     const samePf = new Set(recent.map(e => String(e.pfUsed))).size === 1;
 
     const headerBits = [`Digestion: ${DIGESTION_LABELS[currentDigestion]}`];
+    if (BASAL_TYPE_LABELS[profile.basalType]) headerBits.push(`Basal: ${BASAL_TYPE_LABELS[profile.basalType]}`);
     if (sameAcr) headerBits.push(`ACR ${recent[0].acrUsed}`);
     if (samePf) headerBits.push(`PF ${recent[0].pfUsed}%`);
     if (profile.targetLow || profile.targetHigh) {
@@ -2074,6 +2110,7 @@ document.getElementById('addProfileBtn').onclick = () => {
         acr: '35',
         pf: '60',
         basalDose: '',
+        basalType: '',
         targetLow: '',
         targetHigh: '',
         targetRangeUpdatedAt: null,
@@ -2126,6 +2163,7 @@ function buildExportData(p) {
             acr: p.acr,
             pf: p.pf,
             basalDose: p.basalDose || '',
+            basalType: BASAL_TYPE_LABELS[p.basalType] ? p.basalType : '',
             targetLow: p.targetLow || '',
             targetHigh: p.targetHigh || '',
             targetRangeUpdatedAt: p.targetRangeUpdatedAt || null,
@@ -2279,6 +2317,7 @@ function parseImportFile(text) {
             acr: String(acr),
             pf: String(pf),
             basalDose: importOptNumStr(p.basalDose, 0, 500) || '',
+            basalType: (typeof p.basalType === 'string' && Object.prototype.hasOwnProperty.call(BASAL_TYPE_LABELS, p.basalType)) ? p.basalType : '',
             targetLow: tl === null ? '' : tl,
             targetHigh: th === null ? '' : th,
             targetRangeUpdatedAt: tru,
@@ -2300,7 +2339,7 @@ function parseImportFile(text) {
 function commitImport(clean, targetId, replaceSettings) {
     const { id: activeId, profiles } = getActiveProfile();
     const settings = {
-        acr: clean.acr, pf: clean.pf, basalDose: clean.basalDose,
+        acr: clean.acr, pf: clean.pf, basalDose: clean.basalDose, basalType: clean.basalType,
         targetLow: clean.targetLow, targetHigh: clean.targetHigh,
         targetRangeUpdatedAt: clean.targetRangeUpdatedAt,
         unit: clean.unit, mode: clean.mode, weightGrams: clean.weightGrams,
@@ -2353,6 +2392,7 @@ function commitImport(clean, targetId, replaceSettings) {
     const already = clean.mealLog.length - fresh.length;
     target.mealLog = merged;
     if (replaceSettings) Object.assign(target, settings);
+    else if (!BASAL_TYPE_LABELS[target.basalType] && clean.basalType) target.basalType = clean.basalType; // fill-blank only
     safeSave();
     if (replaceSettings && targetId === activeId) {
         loadSavedSettings();
@@ -2476,7 +2516,7 @@ document.getElementById('importFileInput').addEventListener('change', function()
     reader.readAsText(file);
 });
 
-// --- 5f. CARTRIDGE RESOLVER ---
+// --- 5h. CARTRIDGE RESOLVER ---
 // Afrezza cartridges really do come in exactly 4/8/12-unit sizes,
 // color-coded blue/green/yellow. Since every dose here is already a
 // multiple of 4, and 12 is itself a multiple of 4, stripping out as
@@ -2659,6 +2699,10 @@ document.getElementById('basalDose').addEventListener('input', function() {
     updateActiveProfile({ basalDose: this.value });
 });
 
+document.getElementById('basalType').addEventListener('change', function() {
+    updateActiveProfile({ basalType: this.value });
+});
+
 // Target range is likewise never read by calc() or by outcome tagging —
 // it's shown on the printed report for reference only. Unlike basalDose,
 // we listen on 'change' (fires once, on blur/enter) rather than 'input',
@@ -2669,9 +2713,20 @@ document.getElementById('basalDose').addEventListener('input', function() {
 ['targetLow', 'targetHigh'].forEach(fieldId => {
     document.getElementById(fieldId).addEventListener('change', function() {
         updateActiveProfile({ [fieldId]: this.value, targetRangeUpdatedAt: Date.now() });
+        updateTargetWarning();
         updateSafetyFlag();
     });
 });
+
+// Shown (never blocking) when both ends are filled in but high <= low.
+// The range is still saved as typed — rejecting it would trap anyone moving
+// the whole range up, since low gets edited before high — and
+// updateSafetyFlag() already stays off for such a range.
+function updateTargetWarning() {
+    const lo = parseFloat(document.getElementById('targetLow').value);
+    const hi = parseFloat(document.getElementById('targetHigh').value);
+    document.getElementById('targetMsg').style.display = (!isNaN(lo) && !isNaN(hi) && hi <= lo) ? 'block' : 'none';
+}
 
 // --- 7. STARTUP SEQUENCE ---
 [inputs.acr, inputs.carbs, inputs.proteinFactor, inputs.proteinSpeed, inputs.fatLoad, inputs.sensitivityAdjust].forEach(el => {
@@ -2780,9 +2835,6 @@ if (window.matchMedia('(display-mode: standalone)').matches
     build.textContent = window.APP_META.build || "";
   }
 </script>
-  
-</div>
-
 
 <div id="printReport" class="print-only"></div>
 
